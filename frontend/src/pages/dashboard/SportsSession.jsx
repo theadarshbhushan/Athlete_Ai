@@ -9,6 +9,7 @@ import {
 } from '../../api/sports';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import StatCard from '../../components/ui/StatCard';
+import { formatDisplayDate } from '../../utils/date';
 
 function toLocalIso(date = new Date()) {
   const offset = date.getTimezoneOffset() * 60000;
@@ -276,7 +277,7 @@ export default function SportsSession() {
               <tbody>
                 {sessions.map((session) => (
                   <tr key={session.id} className="border-b border-slate-100 last:border-b-0">
-                    <td className="py-4 text-sm font-medium text-slate-700">{session.date}</td>
+                    <td className="py-4 text-sm font-medium text-slate-700">{formatDisplayDate(session.date)}</td>
                     <td className="py-4 text-sm capitalize text-slate-500">{session.sport}</td>
                     <td className="py-4 text-sm text-slate-500">{session.duration_min} min</td>
                     <td className="py-4 text-sm text-slate-500">{session.intensity}/10</td>

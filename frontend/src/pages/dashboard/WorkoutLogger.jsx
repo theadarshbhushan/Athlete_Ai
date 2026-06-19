@@ -11,6 +11,7 @@ import {
 } from '../../api/workout';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import StatCard from '../../components/ui/StatCard';
+import { formatDisplayDate } from '../../utils/date';
 
 function toLocalIso(date = new Date()) {
   const offset = date.getTimezoneOffset() * 60000;
@@ -289,7 +290,7 @@ export default function WorkoutLogger() {
               <tbody>
                 {workouts.map((workout) => (
                   <tr key={workout.id} className="border-b border-slate-100 last:border-b-0">
-                    <td className="py-4 text-sm font-medium text-slate-700">{workout.date}</td>
+                    <td className="py-4 text-sm font-medium text-slate-700">{formatDisplayDate(workout.date)}</td>
                     <td className="py-4 text-sm capitalize text-slate-500">{workout.type}</td>
                     <td className="py-4 text-sm text-slate-900">{workout.exercise}</td>
                     <td className="py-4 text-sm text-slate-500">{workout.duration_min} min</td>

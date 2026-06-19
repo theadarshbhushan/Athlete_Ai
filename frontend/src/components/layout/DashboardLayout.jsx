@@ -2,6 +2,7 @@ import { Bell } from 'lucide-react';
 import { Outlet, useLocation } from 'react-router-dom';
 
 import { useAuth } from '../../hooks/useAuth';
+import { formatDisplayDate } from '../../utils/date';
 import AccountSwitcher from './AccountSwitcher';
 import Sidebar from './Sidebar';
 
@@ -17,12 +18,7 @@ const titles = {
 };
 
 function formatDateLabel() {
-  return new Intl.DateTimeFormat('en-GB', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  }).format(new Date());
+  return formatDisplayDate(new Date());
 }
 
 export default function DashboardLayout() {

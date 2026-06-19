@@ -7,6 +7,7 @@ import { getProfile, updatePassword, updateProfile } from '../../api/user';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import RiskBadge from '../../components/ui/RiskBadge';
 import { useAuth } from '../../hooks/useAuth';
+import { formatDisplayDate } from '../../utils/date';
 
 export default function Profile() {
   const { user, refreshUser, setUser } = useAuth();
@@ -160,7 +161,9 @@ export default function Profile() {
               <RiskBadge level={profile?.sport || 'Sport'} />
               <RiskBadge level={profile?.goal || 'Goal'} />
             </div>
-            <p className="mt-6 text-sm text-slate-500">Member since {profile?.created_at?.slice(0, 10) || '2026'}</p>
+            <p className="mt-6 text-sm text-slate-500">
+              Member since {profile?.created_at ? formatDisplayDate(profile.created_at) : '19-06-2026'}
+            </p>
             <button
               type="button"
               onClick={() => toast('Photo uploads are not available in the current backend yet.')}
@@ -175,7 +178,6 @@ export default function Profile() {
         <form onSubmit={handleProfileSubmit} className="rounded-[32px] border border-slate-100 bg-white p-8 shadow-sm">
           <div className="mb-6">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-blue-600">Edit Profile</p>
-            <h2 className="mt-2 font-display text-3xl tracking-tight text-slate-950">Athlete details</h2>
           </div>
 
           <div className="grid gap-5 md:grid-cols-2">

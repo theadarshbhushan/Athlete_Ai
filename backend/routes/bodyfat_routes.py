@@ -16,61 +16,42 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 
 @router.post("/estimate")
-async def estimate_bodyfat(
-    payload: BodyFatManual,
-    current_user: dict = Depends(get_current_user),
-):
-    data = payload.model_dump()
-    result = estimate_bodyfat_manual(**data)
-
+async def estimate_bodyfat(data: BodyFatManual, current_user=Depends(get_current_user)):
+    # Try Navy formula first
+    bf = estimate_bodyfat_navy(
+        gender=data.gender,
+        height_cm=data.height_cm,
+        waist_cm=data.waist_cm,
+        neck_cm=data.neck_cm,
+        hip_cm=data.hip_cm
+    )
+    
+    # Fallback to BMI formula if Navy fails
+    if bf is None:
+        bf = estimate_bodyfat_bmi(
+            weight_kg=data.weight_kg,
+            height_cm=data.height_cm,
+            age=data.age,
+            gender=data.gender
+        )
+    
+    result = get_bodyfat_range(bf)
+    result["category"] = get_bodyfat_category(bf, data.gender)
+    
+    # Save to database
     doc = {
-        "user_id": current_user["id"],
-        "date": datetime.now(timezone.utc).date().isoformat(),
-        **result,
-        "method": result.get("method", "manual"),
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "user_id": current_user["_id"],
+        "date": str(date.today()),
+        "method": "manual",
+        "range_low": result["range_low"],
+        "range_high": result["range_high"],
+        "estimate": bf,
+        "confidence": result["confidence"],
+        "category": result["category"]
     }
     await bodyfat_col.insert_one(doc)
-    doc.pop("_id", None)
-    return success_response(result, "Body fat estimated")
-
-
-@router.post("/photo")
-async def estimate_from_photo(
-    file: UploadFile = File(...),
-    current_user: dict = Depends(get_current_user),
-):
-    if not file.content_type or not file.content_type.startswith("image/"):
-        error_response("File must be an image", 400)
-
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-    filename = f"{current_user['id']}_{timestamp}.jpg"
-    filepath = UPLOAD_DIR / filename
-
-    contents = await file.read()
-    with open(filepath, "wb") as f:
-        f.write(contents)
-
-    result = estimate_bodyfat_from_photo(
-        str(filepath),
-        gender=current_user.get("gender", "male"),
-        height_cm=current_user.get("height", 170),
-        weight_kg=current_user.get("weight", 70),
-        age=current_user.get("age", 25),
-    )
-
-    doc = {
-        "user_id": current_user["id"],
-        "date": datetime.now(timezone.utc).date().isoformat(),
-        "photo_path": str(filepath),
-        **result,
-        "created_at": datetime.now(timezone.utc).isoformat(),
-    }
-    insert_result = await bodyfat_col.insert_one(doc)
-    doc["id"] = str(insert_result.inserted_id)
-    doc.pop("_id", None)
-
-    return success_response(result, "Body fat estimated from photo")
+    
+    return success_response(result, "Body fat estimated successfully")
 
 
 @router.get("/history")
