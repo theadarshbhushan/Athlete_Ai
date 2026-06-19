@@ -21,11 +21,13 @@ class UserLogin(BaseModel):
 
 
 class UserUpdate(BaseModel):
+    name: Optional[str] = None
     age: Optional[int] = None
     height: Optional[float] = None
     weight: Optional[float] = None
     sport: Optional[str] = None
     goal: Optional[str] = None
+    gender: Optional[str] = None
 
 
 class PasswordUpdate(BaseModel):

@@ -19,9 +19,9 @@ async def update_profile(
     current_user: dict = Depends(get_current_user),
 ):
     updated = await auth_service.update_user_profile(
-        current_user["id"], payload.model_dump()
+        current_user["id"], payload.model_dump(exclude_unset=True, exclude_none=True)
     )
-    return success_response(updated, "Profile updated")
+    return success_response(updated, "Profile updated successfully")
 
 
 @router.put("/password")
