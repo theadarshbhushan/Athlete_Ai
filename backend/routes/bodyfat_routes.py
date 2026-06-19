@@ -4,7 +4,12 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, File, UploadFile
 
 from database.db import bodyfat_col
-from ml.prediction.bodyfat_estimator import estimate_bodyfat_from_photo, estimate_bodyfat_manual
+from ml.prediction.bodyfat_estimator import (
+    estimate_bodyfat_navy,
+    estimate_bodyfat_bmi,
+    get_bodyfat_range,
+    get_bodyfat_category
+)
 from schemas.bodyfat_schema import BodyFatManual
 from utils.jwt_handler import get_current_user
 from utils.response_handler import error_response, success_response
