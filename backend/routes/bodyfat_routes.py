@@ -5,42 +5,27 @@ from utils.jwt_handler import get_current_user
 from utils.response_handler import success_response, error_response
 from schemas.bodyfat_schema import BodyFatManual
 from ml.prediction.bodyfat_estimator import (
-    estimate_bodyfat_navy,
-    estimate_bodyfat_bmi,
+    get_best_estimate,
     get_bodyfat_range,
     get_bodyfat_category
 )
 
-router = APIRouter(prefix="/api/bodyfat", tags=["Body Fat"])
-
-
 @router.post("/estimate")
 async def estimate_bodyfat(data: BodyFatManual, current_user=Depends(get_current_user)):
     try:
-        # Try Navy formula first
-        bf = None
-        if data.neck_cm and data.waist_cm:
-            bf = estimate_bodyfat_navy(
-                gender=data.gender,
-                height_cm=data.height_cm,
-                waist_cm=data.waist_cm,
-                neck_cm=data.neck_cm,
-                hip_cm=data.hip_cm
-            )
-
-        # Fallback to BMI formula
-        if bf is None or bf <= 0:
-            bf = estimate_bodyfat_bmi(
-                weight_kg=data.weight_kg,
-                height_cm=data.height_cm,
-                age=data.age,
-                gender=data.gender
-            )
+        bf = get_best_estimate(
+            gender=data.gender,
+            height_cm=data.height_cm,
+            weight_kg=data.weight_kg,
+            age=data.age,
+            waist_cm=data.waist_cm,
+            neck_cm=data.neck_cm,
+            hip_cm=data.hip_cm
+        )
 
         result = get_bodyfat_range(bf)
         result["category"] = get_bodyfat_category(bf, data.gender)
 
-        # Save to database
         doc = {
             "user_id": str(current_user["_id"]),
             "date": str(date.today()),
