@@ -32,6 +32,7 @@ import {
 } from '../../api/analytics';
 import { getHealthHistory } from '../../api/health';
 import { getPredictionHistory } from '../../api/prediction';
+import { getWorkouts } from '../../api/workout';
 import {
   chartGridProps,
   chartMargin,
@@ -129,7 +130,7 @@ function ChartModal({ title, subtitle, stats, onClose, children }) {
             </button>
           </div>
 
-          <div className="mt-8 flex-1 min-h-0">{children}</div>
+          <div className="mt-8 min-h-0 flex-1">{children}</div>
           <ChartSummaryBar stats={stats} />
         </div>
       </div>
@@ -175,21 +176,27 @@ function ChartCard({ title, subtitle, stats, canExpand, renderChart }) {
   );
 }
 
-function ChartEmpty({ height = 300, onAction }) {
+function ChartEmpty({
+  height = 300,
+  onAction,
+  title = 'No data yet',
+  subtitle = 'Log your workouts to see trends',
+  actionLabel = 'Log Now',
+}) {
   return (
     <div
       className="flex flex-col items-center justify-center rounded-[24px] bg-slate-50 px-6 text-center"
       style={{ height }}
     >
       <BarChart2 className="h-10 w-10 text-slate-300" />
-      <p className="mt-4 text-base font-semibold text-slate-700">No data yet</p>
-      <p className="mt-2 text-sm text-slate-500">Log your workouts to see trends</p>
+      <p className="mt-4 text-base font-semibold text-slate-700">{title}</p>
+      <p className="mt-2 text-sm text-slate-500">{subtitle}</p>
       <button
         type="button"
         onClick={onAction}
         className="mt-5 rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-blue-700"
       >
-        Log Now
+        {actionLabel}
       </button>
     </div>
   );
@@ -199,10 +206,18 @@ function ChartSkeleton({ height = 300 }) {
   return <div className="animate-pulse rounded-[24px] bg-slate-100" style={{ height }} />;
 }
 
-function ChartWrap({ children, minWidth = 640 }) {
+function ChartWrap({ children, dataLength = 0, scrollable = false, minWidth }) {
+  const enableScroll = scrollable && dataLength > 10;
+  const computedMinWidth = enableScroll ? Math.max(500, dataLength * 40) : (minWidth ?? '100%');
+
   return (
-    <div className="dashboard-scroll h-full overflow-x-auto">
-      <div style={{ minWidth }}>{children}</div>
+    <div className="h-full">
+      <div className={enableScroll ? 'dashboard-scroll overflow-x-auto' : ''}>
+        <div style={{ minWidth: computedMinWidth }}>{children}</div>
+      </div>
+      {enableScroll ? (
+        <p className="mt-3 text-center text-xs text-slate-400">{'<- Scroll to see more ->'}</p>
+      ) : null}
     </div>
   );
 }
@@ -218,7 +233,8 @@ function strengthToSeries(data = []) {
         map.set(item.date, { date: formatShortDate(item.date) });
       }
 
-      map.get(item.date)[exerciseEntry.exercise] = item.max_weight;
+      const currentRow = map.get(item.date);
+      currentRow[exerciseEntry.exercise] = item.max_weight;
     });
   });
 
@@ -228,6 +244,33 @@ function strengthToSeries(data = []) {
       .map(([, value]) => value),
     keys: keys.slice(0, 4),
   };
+}
+
+function processStrengthData(workouts = []) {
+  const exerciseMap = {};
+
+  workouts.forEach((workout) => {
+    if (workout.type === 'gym' && workout.exercise && workout.weight_kg) {
+      if (!exerciseMap[workout.exercise]) {
+        exerciseMap[workout.exercise] = [];
+      }
+
+      exerciseMap[workout.exercise].push({
+        date: workout.date,
+        max_weight: workout.weight_kg,
+      });
+    }
+  });
+
+  return Object.entries(exerciseMap).map(([exercise, history]) => ({
+    exercise,
+    history: history
+      .sort((left, right) => left.date.localeCompare(right.date))
+      .map((item) => ({
+        date: item.date,
+        max_weight: item.max_weight,
+      })),
+  }));
 }
 
 function riskToValue(label = 'Low') {
@@ -280,6 +323,13 @@ export default function Analytics() {
           getHealthHistory(range),
         ]);
 
+        let strengthProgress = strengthResponse.data?.data ?? [];
+
+        if (!strengthProgress.length) {
+          const workoutsResponse = await getWorkouts();
+          strengthProgress = processStrengthData(workoutsResponse.data?.data ?? []);
+        }
+
         setDatasets({
           trainingLoad: (trainingLoadResponse.data?.data ?? []).map((item) => ({
             ...item,
@@ -297,7 +347,7 @@ export default function Analytics() {
             ...item,
             week: formatShortDate(item.week_start),
           })),
-          strengthProgress: strengthResponse.data?.data ?? [],
+          strengthProgress,
           caloriesTrend: (caloriesResponse.data?.data ?? []).map((item) => ({
             ...item,
             date: formatShortDate(item.date),
@@ -383,7 +433,7 @@ export default function Analytics() {
             isLoading ? (
               <ChartSkeleton height={height} />
             ) : hasEnoughPoints(datasets?.trainingLoad ?? []) ? (
-              <ChartWrap>
+              <ChartWrap dataLength={datasets.trainingLoad.length} scrollable>
                 <ResponsiveContainer width="100%" height={height}>
                   <BarChart data={datasets.trainingLoad} margin={chartMargin}>
                     <CartesianGrid {...chartGridProps} />
@@ -409,7 +459,7 @@ export default function Analytics() {
             isLoading ? (
               <ChartSkeleton height={height} />
             ) : hasEnoughPoints(datasets?.recoveryTrend ?? []) ? (
-              <ChartWrap>
+              <ChartWrap dataLength={datasets.recoveryTrend.length} scrollable>
                 <ResponsiveContainer width="100%" height={height}>
                   <LineChart data={datasets.recoveryTrend} margin={chartMargin}>
                     <CartesianGrid {...chartGridProps} />
@@ -445,7 +495,7 @@ export default function Analytics() {
             isLoading ? (
               <ChartSkeleton height={height} />
             ) : hasEnoughPoints(datasets?.sleepTrend ?? []) ? (
-              <ChartWrap>
+              <ChartWrap dataLength={datasets.sleepTrend.length} scrollable>
                 <ResponsiveContainer width="100%" height={height}>
                   <AreaChart data={datasets.sleepTrend} margin={chartMargin}>
                     <defs>
@@ -512,12 +562,12 @@ export default function Analytics() {
           title="Strength Progress"
           subtitle="Estimated best weight by exercise"
           stats={strengthStats}
-          canExpand={!isLoading && hasEnoughPoints(strengthChart.series)}
+          canExpand={!isLoading && Boolean(strengthChart.series.length && strengthChart.keys.length)}
           renderChart={({ height }) =>
             isLoading ? (
               <ChartSkeleton height={height} />
-            ) : hasEnoughPoints(strengthChart.series) && strengthChart.keys.length ? (
-              <ChartWrap minWidth={760}>
+            ) : strengthChart.series.length && strengthChart.keys.length ? (
+              <div className="h-full">
                 <ResponsiveContainer width="100%" height={height}>
                   <LineChart data={strengthChart.series} margin={chartMargin}>
                     <CartesianGrid {...chartGridProps} />
@@ -542,9 +592,13 @@ export default function Analytics() {
                     })}
                   </LineChart>
                 </ResponsiveContainer>
-              </ChartWrap>
+              </div>
             ) : (
-              <ChartEmpty height={height} onAction={() => navigate('/dashboard/workout')} />
+              <ChartEmpty
+                height={height}
+                onAction={() => navigate('/dashboard/workout')}
+                subtitle="Log gym workouts with weight to see strength progress"
+              />
             )
           }
         />
@@ -558,7 +612,7 @@ export default function Analytics() {
             isLoading ? (
               <ChartSkeleton height={height} />
             ) : hasEnoughPoints(datasets?.caloriesTrend ?? []) ? (
-              <ChartWrap>
+              <ChartWrap dataLength={datasets.caloriesTrend.length} scrollable>
                 <ResponsiveContainer width="100%" height={height}>
                   <BarChart data={datasets.caloriesTrend} margin={chartMargin}>
                     <CartesianGrid {...chartGridProps} />
@@ -586,7 +640,7 @@ export default function Analytics() {
             isLoading ? (
               <ChartSkeleton height={height} />
             ) : hasEnoughPoints(datasets?.bodyfatProgress ?? []) ? (
-              <ChartWrap>
+              <ChartWrap dataLength={datasets.bodyfatProgress.length} scrollable>
                 <ResponsiveContainer width="100%" height={height}>
                   <ComposedChart data={datasets.bodyfatProgress} margin={chartMargin}>
                     <CartesianGrid {...chartGridProps} />
@@ -630,7 +684,7 @@ export default function Analytics() {
             isLoading ? (
               <ChartSkeleton height={height} />
             ) : hasEnoughPoints(datasets?.performanceScore ?? []) ? (
-              <ChartWrap>
+              <ChartWrap dataLength={datasets.performanceScore.length} scrollable>
                 <ResponsiveContainer width="100%" height={height}>
                   <LineChart data={datasets.performanceScore} margin={chartMargin}>
                     <CartesianGrid {...chartGridProps} />
@@ -666,7 +720,7 @@ export default function Analytics() {
             isLoading ? (
               <ChartSkeleton height={height} />
             ) : hasEnoughPoints(datasets?.injuryRiskTimeline ?? []) ? (
-              <ChartWrap>
+              <ChartWrap dataLength={datasets.injuryRiskTimeline.length} scrollable>
                 <ResponsiveContainer width="100%" height={height}>
                   <AreaChart data={datasets.injuryRiskTimeline} margin={chartMargin}>
                     <CartesianGrid {...chartGridProps} />
@@ -702,7 +756,7 @@ export default function Analytics() {
             isLoading ? (
               <ChartSkeleton height={height} />
             ) : hasEnoughPoints(datasets?.heartRateTrend ?? []) ? (
-              <ChartWrap>
+              <ChartWrap dataLength={datasets.heartRateTrend.length} scrollable>
                 <ResponsiveContainer width="100%" height={height}>
                   <LineChart data={datasets.heartRateTrend} margin={chartMargin}>
                     <CartesianGrid {...chartGridProps} />

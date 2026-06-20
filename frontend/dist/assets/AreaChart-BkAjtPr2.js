@@ -1,1 +1,0 @@
-import{j as a,X as r,Y as s,k as i}from"./chartTheme-bekcU4bT.js";import{A as x}from"./Area-lM02FMzd.js";var o=a({chartName:"AreaChart",GraphicalChild:x,axisComponents:[{axisType:"xAxis",AxisComp:r},{axisType:"yAxis",AxisComp:s}],formatAxisMap:i});export{o as A};
