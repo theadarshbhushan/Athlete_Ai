@@ -10,6 +10,9 @@ from ml.prediction.bodyfat_estimator import (
     get_bodyfat_category
 )
 
+router = APIRouter(prefix="/api/bodyfat", tags=["Body Fat"])
+
+
 @router.post("/estimate")
 async def estimate_bodyfat(data: BodyFatManual, current_user=Depends(get_current_user)):
     try:
