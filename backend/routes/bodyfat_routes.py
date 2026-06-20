@@ -30,7 +30,7 @@ async def estimate_bodyfat(data: BodyFatManual, current_user=Depends(get_current
         result["category"] = get_bodyfat_category(bf, data.gender)
 
         doc = {
-            "user_id": current_user.get("id") or str(current_user.get("_id", "")),
+            "user_id": current_user["id"],
             "date": str(date.today()),
             "method": "manual",
             "range_low": result["range_low"],
@@ -56,7 +56,7 @@ async def estimate_from_photo(current_user=Depends(get_current_user)):
 async def get_bodyfat_history(current_user=Depends(get_current_user)):
     try:
         cursor = bodyfat_col.find(
-            {"user_id": current_user.get("id") or str(current_user.get("_id", ""))}
+            {"user_id": current_user["id"]}
         ).sort("date", -1).limit(30)
         history = []
         async for doc in cursor:
