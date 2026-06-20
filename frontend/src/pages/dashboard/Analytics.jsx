@@ -53,6 +53,21 @@ function formatShortDate(value) {
   }).format(new Date(value));
 }
 
+function createEmptyDatasets() {
+  return {
+    trainingLoad: [],
+    recoveryTrend: [],
+    sleepTrend: [],
+    workoutConsistency: [],
+    strengthProgress: [],
+    caloriesTrend: [],
+    bodyfatProgress: [],
+    performanceScore: [],
+    injuryRiskTimeline: [],
+    heartRateTrend: [],
+  };
+}
+
 function calculateSummaryStats(data = [], valueKeys = []) {
   const values = data.flatMap((item) =>
     valueKeys
@@ -229,18 +244,38 @@ function ChartWrap({ children, dataLength = 0, scrollable = false, minWidth }) {
 }
 
 function strengthToSeries(data = []) {
+  if (!data || !Array.isArray(data) || data.length === 0) {
+    return { series: [], keys: [] };
+  }
+
   const map = new Map();
   const keys = [];
 
-  data.forEach((exerciseEntry) => {
-    keys.push(exerciseEntry.exercise);
-    exerciseEntry.history.forEach((item) => {
+  (data || []).forEach((exerciseEntry) => {
+    if (!exerciseEntry) {
+      return;
+    }
+
+    const exerciseName = exerciseEntry.exercise || exerciseEntry.name;
+    const exerciseData = exerciseEntry.history || exerciseEntry.data;
+
+    if (!exerciseName || !Array.isArray(exerciseData)) {
+      return;
+    }
+
+    keys.push(exerciseName);
+
+    exerciseData.forEach((item) => {
+      if (!item || !item.date) {
+        return;
+      }
+
       if (!map.has(item.date)) {
         map.set(item.date, { date: formatShortDate(item.date) });
       }
 
       const currentRow = map.get(item.date);
-      currentRow[exerciseEntry.exercise] = item.max_weight;
+      currentRow[exerciseName] = item.max_weight ?? item.weight ?? 0;
     });
   });
 
@@ -255,7 +290,7 @@ function strengthToSeries(data = []) {
 function processStrengthData(workouts = []) {
   const exerciseMap = {};
 
-  workouts.forEach((workout) => {
+  (workouts || []).forEach((workout) => {
     if (workout.type === 'gym' && workout.exercise && workout.weight_kg) {
       if (!exerciseMap[workout.exercise]) {
         exerciseMap[workout.exercise] = [];
@@ -296,77 +331,86 @@ function hasEnoughPoints(data = []) {
 export default function Analytics() {
   const navigate = useNavigate();
   const [range, setRange] = useState(30);
-  const [datasets, setDatasets] = useState(null);
+  const [datasets, setDatasets] = useState(createEmptyDatasets);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const loadData = async () => {
+      const safeRequest = async (request, fallback = []) => {
+        try {
+          const response = await request();
+          return response?.data?.data || fallback;
+        } catch (error) {
+          return fallback;
+        }
+      };
+
       try {
         setIsLoading(true);
         const weeks = range === 7 ? 4 : range === 30 ? 8 : 12;
 
         const [
-          trainingLoadResponse,
-          recoveryResponse,
-          sleepResponse,
-          consistencyResponse,
-          strengthResponse,
-          caloriesResponse,
-          bodyfatResponse,
-          performanceResponse,
-          predictionResponse,
-          healthResponse,
+          trainingLoadData,
+          recoveryData,
+          sleepData,
+          consistencyData,
+          strengthData,
+          caloriesData,
+          bodyfatData,
+          performanceData,
+          predictionData,
+          healthData,
         ] = await Promise.all([
-          getTrainingLoad(weeks),
-          getRecoveryTrend(range),
-          getSleepTrend(range),
-          getWorkoutConsistency(weeks),
-          getStrengthProgress(),
-          getCaloriesTrend(range),
-          getBodyfatProgress(),
-          getPerformanceScore(range),
-          getPredictionHistory(),
-          getHealthHistory(range),
+          safeRequest(() => getTrainingLoad(weeks)),
+          safeRequest(() => getRecoveryTrend(range)),
+          safeRequest(() => getSleepTrend(range)),
+          safeRequest(() => getWorkoutConsistency(weeks)),
+          safeRequest(() => getStrengthProgress()),
+          safeRequest(() => getCaloriesTrend(range)),
+          safeRequest(() => getBodyfatProgress()),
+          safeRequest(() => getPerformanceScore(range)),
+          safeRequest(() => getPredictionHistory()),
+          safeRequest(() => getHealthHistory(range)),
         ]);
 
-        let strengthProgress = strengthResponse.data?.data ?? [];
+        let strengthProgress = Array.isArray(strengthData) ? strengthData : [];
 
         if (!strengthProgress.length) {
-          const workoutsResponse = await getWorkouts();
-          strengthProgress = processStrengthData(workoutsResponse.data?.data ?? []);
+          const workoutsData = await safeRequest(() => getWorkouts());
+          strengthProgress = processStrengthData(workoutsData);
         }
 
         setDatasets({
-          trainingLoad: (trainingLoadResponse.data?.data ?? []).map((item) => ({
+          trainingLoad: (trainingLoadData || []).map((item) => ({
             ...item,
             week: formatShortDate(item.week_start),
           })),
-          recoveryTrend: (recoveryResponse.data?.data ?? []).map((item) => ({
+          recoveryTrend: (recoveryData || []).map((item) => ({
             ...item,
             date: formatShortDate(item.date),
           })),
-          sleepTrend: (sleepResponse.data?.data ?? []).map((item) => ({
+          sleepTrend: (sleepData || []).map((item) => ({
             ...item,
             date: formatShortDate(item.date),
           })),
-          workoutConsistency: (consistencyResponse.data?.data ?? []).map((item) => ({
+          workoutConsistency: (consistencyData || []).map((item) => ({
             ...item,
             week: formatShortDate(item.week_start),
           })),
           strengthProgress,
-          caloriesTrend: (caloriesResponse.data?.data ?? []).map((item) => ({
+          caloriesTrend: (caloriesData || []).map((item) => ({
             ...item,
             date: formatShortDate(item.date),
           })),
-          bodyfatProgress: (bodyfatResponse.data?.data ?? []).map((item) => ({
+          bodyfatProgress: (bodyfatData || []).map((item) => ({
             ...item,
             date: formatShortDate(item.date),
           })),
-          performanceScore: (performanceResponse.data?.data ?? []).map((item) => ({
+          performanceScore: (performanceData || []).map((item) => ({
             ...item,
             date: formatShortDate(item.date),
           })),
-          injuryRiskTimeline: (predictionResponse.data?.data ?? [])
+          injuryRiskTimeline: (predictionData || [])
             .slice()
             .reverse()
             .slice(-range)
@@ -375,13 +419,14 @@ export default function Analytics() {
               risk_label: item.injury_risk,
               risk_value: riskToValue(item.injury_risk),
             })),
-          heartRateTrend: (healthResponse.data?.data ?? []).map((item) => ({
+          heartRateTrend: (healthData || []).map((item) => ({
             date: formatShortDate(item.date),
             resting_hr: item.resting_hr,
           })),
         });
       } catch (error) {
         toast.error(error?.response?.data?.detail?.message || 'Unable to load analytics.');
+        setDatasets(createEmptyDatasets());
       } finally {
         setIsLoading(false);
       }
@@ -407,29 +452,31 @@ export default function Analytics() {
       transition={{ duration: 0.3 }}
       className="space-y-8"
     >
-      <section className="flex flex-col gap-4 rounded-[30px] border border-slate-100 bg-white p-6 shadow-sm md:flex-row md:items-center md:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-blue-600">Performance Analytics</p>
-          <h2 className="mt-2 font-body text-3xl font-semibold tracking-tight text-slate-950">Multi-signal trend view</h2>
-        </div>
+      {datasets && strengthChart && (
+        <>
+          <section className="flex flex-col gap-4 rounded-[30px] border border-slate-100 bg-white p-6 shadow-sm md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-blue-600">Performance Analytics</p>
+              <h2 className="mt-2 font-body text-3xl font-semibold tracking-tight text-slate-950">Multi-signal trend view</h2>
+            </div>
 
-        <div className="inline-flex rounded-full border border-slate-200 bg-slate-50 p-1">
-          {[7, 30, 90].map((value) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => setRange(value)}
-              className={`rounded-full px-4 py-2 text-sm font-semibold transition-all duration-300 ${
-                range === value ? 'bg-blue-600 text-white' : 'text-slate-600 hover:text-blue-600'
-              }`}
-            >
-              Last {value} days
-            </button>
-          ))}
-        </div>
-      </section>
+            <div className="inline-flex rounded-full border border-slate-200 bg-slate-50 p-1">
+              {[7, 30, 90].map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setRange(value)}
+                  className={`rounded-full px-4 py-2 text-sm font-semibold transition-all duration-300 ${
+                    range === value ? 'bg-blue-600 text-white' : 'text-slate-600 hover:text-blue-600'
+                  }`}
+                >
+                  Last {value} days
+                </button>
+              ))}
+            </div>
+          </section>
 
-      <section className="grid gap-6 xl:grid-cols-2">
+          <section className="grid gap-6 xl:grid-cols-2">
         <ChartCard
           title="Training Load"
           subtitle="Weekly load accumulation"
@@ -489,9 +536,9 @@ export default function Analytics() {
             )
           }
         />
-      </section>
+          </section>
 
-      <section className="grid gap-6 xl:grid-cols-2">
+          <section className="grid gap-6 xl:grid-cols-2">
         <ChartCard
           title="Sleep Trend"
           subtitle="Daily sleep hours"
@@ -561,9 +608,9 @@ export default function Analytics() {
             )
           }
         />
-      </section>
+          </section>
 
-      <section className="grid gap-6 xl:grid-cols-2">
+          <section className="grid gap-6 xl:grid-cols-2">
         <ChartCard
           title="Strength Progress"
           subtitle="Estimated best weight by exercise"
@@ -634,9 +681,9 @@ export default function Analytics() {
             )
           }
         />
-      </section>
+          </section>
 
-      <section className="grid gap-6 xl:grid-cols-2">
+          <section className="grid gap-6 xl:grid-cols-2">
         <ChartCard
           title="Body Fat Progress"
           subtitle="Estimated composition over time"
@@ -714,9 +761,9 @@ export default function Analytics() {
             )
           }
         />
-      </section>
+          </section>
 
-      <section className="grid gap-6 xl:grid-cols-2">
+          <section className="grid gap-6 xl:grid-cols-2">
         <ChartCard
           title="Injury Risk Timeline"
           subtitle="Risk zones across recent predictions"
@@ -786,7 +833,9 @@ export default function Analytics() {
             )
           }
         />
-      </section>
+          </section>
+        </>
+      )}
     </motion.div>
   );
 }
