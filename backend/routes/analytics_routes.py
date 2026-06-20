@@ -10,23 +10,15 @@ router = APIRouter(prefix="/analytics", tags=["Analytics"])
 
 
 @router.get("/training-load")
-async def get_training_load(current_user=Depends(get_current_user)):
+async def get_training_load(
+    weeks: int = Query(8, ge=1, le=52),
+    current_user=Depends(get_current_user),
+):
     try:
-        cursor = workouts_col.find({
-            "user_id": current_user["id"],
-            "training_load": {"$ne": None}
-        }).sort("date", -1).limit(56)  # last 8 weeks
-
-        workouts = []
-        async for doc in cursor:
-            workouts.append({
-                "date": doc.get("date"),
-                "training_load": doc.get("training_load", 0),
-                "type": doc.get("type")
-            })
-
-        return success_response(workouts, "Training load retrieved")
-
+        data = await analytics_service.get_training_load_weekly(
+            current_user["id"], weeks
+        )
+        return success_response(data, "Training load retrieved")
     except Exception as e:
         return error_response(str(e), 500)
 

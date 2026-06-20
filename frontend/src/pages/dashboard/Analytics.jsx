@@ -43,15 +43,7 @@ import {
   getYAxisProps,
   renderLastPointDot,
 } from '../../components/charts/chartTheme';
-
-function formatShortDate(value) {
-  if (!value) return '--';
-
-  return new Intl.DateTimeFormat('en-GB', {
-    day: 'numeric',
-    month: 'short',
-  }).format(new Date(value));
-}
+import { formatShortDate } from '../../utils/date';
 
 function createEmptyDatasets() {
   return {
@@ -328,6 +320,14 @@ function hasEnoughPoints(data = []) {
   return data.length > 1;
 }
 
+function sortByTimelineKey(data = [], keySelector) {
+  return [...data].sort((left, right) => {
+    const leftKey = keySelector(left) || '';
+    const rightKey = keySelector(right) || '';
+    return leftKey.localeCompare(rightKey);
+  });
+}
+
 export default function Analytics() {
   const navigate = useNavigate();
   const [range, setRange] = useState(30);
@@ -381,9 +381,12 @@ export default function Analytics() {
         }
 
         setDatasets({
-          trainingLoad: (trainingLoadData || []).map((item) => ({
+          trainingLoad: sortByTimelineKey(
+            trainingLoadData || [],
+            (item) => item.week_start || item.date,
+          ).map((item) => ({
             ...item,
-            week: formatShortDate(item.week_start),
+            week: formatShortDate(item.week_start || item.date),
           })),
           recoveryTrend: (recoveryData || []).map((item) => ({
             ...item,
@@ -393,7 +396,10 @@ export default function Analytics() {
             ...item,
             date: formatShortDate(item.date),
           })),
-          workoutConsistency: (consistencyData || []).map((item) => ({
+          workoutConsistency: sortByTimelineKey(
+            consistencyData || [],
+            (item) => item.week_start,
+          ).map((item) => ({
             ...item,
             week: formatShortDate(item.week_start),
           })),
