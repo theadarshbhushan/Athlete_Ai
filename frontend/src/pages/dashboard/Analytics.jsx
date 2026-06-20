@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { BarChart2, Maximize2, X } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { cloneElement, isValidElement, useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -208,12 +208,18 @@ function ChartSkeleton({ height = 300 }) {
 
 function ChartWrap({ children, dataLength = 0, scrollable = false, minWidth }) {
   const enableScroll = scrollable && dataLength > 10;
-  const computedMinWidth = enableScroll ? Math.max(500, dataLength * 40) : (minWidth ?? '100%');
+  const computedWidth = enableScroll ? Math.max(500, Math.max(dataLength, 1) * 40) : null;
+  const wrappedChild =
+    enableScroll && isValidElement(children)
+      ? cloneElement(children, { width: computedWidth })
+      : children;
 
   return (
     <div className="h-full">
-      <div className={enableScroll ? 'dashboard-scroll overflow-x-auto' : ''}>
-        <div style={{ minWidth: computedMinWidth }}>{children}</div>
+      <div className={enableScroll ? 'dashboard-scroll overflow-x-auto pb-2' : ''}>
+        <div style={enableScroll ? { width: computedWidth } : minWidth ? { minWidth } : { width: '100%' }}>
+          {wrappedChild}
+        </div>
       </div>
       {enableScroll ? (
         <p className="mt-3 text-center text-xs text-slate-400">{'<- Scroll to see more ->'}</p>

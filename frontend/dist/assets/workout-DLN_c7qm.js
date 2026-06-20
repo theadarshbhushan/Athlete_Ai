@@ -1,0 +1,1 @@
+import{l as t}from"./index-BBTyz-AQ.js";const e=o=>t.post("/api/workouts",o),a=o=>t.get("/api/workouts",{params:o}),r=()=>t.get("/api/workouts/summary/weekly"),k=o=>t.delete(`/api/workouts/${o}`);export{r as a,k as d,a as g,e as l};
