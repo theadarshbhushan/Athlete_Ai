@@ -13,24 +13,32 @@ function ProgressRing({ value = 0 }) {
   const offset = circumference - (Math.min(Math.max(value, 0), 100) / 100) * circumference;
 
   return (
-    <div className="relative flex h-48 w-48 items-center justify-center">
-      <svg className="h-48 w-48 -rotate-90" viewBox="0 0 180 180">
-        <circle cx="90" cy="90" r={radius} stroke="rgba(148,163,184,0.2)" strokeWidth="16" fill="none" />
-        <circle
-          cx="90"
-          cy="90"
-          r={radius}
-          stroke="#2563EB"
-          strokeWidth="16"
-          fill="none"
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-        />
-      </svg>
-      <div className="absolute text-center">
-        <div className="font-display text-5xl tracking-tight text-slate-900">{value}</div>
-        <div className="text-xs uppercase tracking-[0.25em] text-slate-400">Recovery Score</div>
+    <div className="flex flex-col items-center gap-4">
+      <div className="text-center">
+        <p className="text-[0.7rem] font-semibold uppercase tracking-[0.35em] text-slate-400">
+          Recovery Score
+        </p>
+        <p className="mt-2 text-sm font-medium text-slate-500">Daily readiness</p>
+      </div>
+
+      <div className="relative flex h-48 w-48 items-center justify-center">
+        <svg className="h-48 w-48 -rotate-90" viewBox="0 0 180 180">
+          <circle cx="90" cy="90" r={radius} stroke="rgba(148,163,184,0.2)" strokeWidth="16" fill="none" />
+          <circle
+            cx="90"
+            cy="90"
+            r={radius}
+            stroke="#2563EB"
+            strokeWidth="16"
+            fill="none"
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={offset}
+          />
+        </svg>
+        <div className="absolute text-center">
+          <div className="font-display text-5xl tracking-tight text-slate-900">{value}</div>
+        </div>
       </div>
     </div>
   );

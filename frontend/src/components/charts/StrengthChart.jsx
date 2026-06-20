@@ -8,27 +8,16 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import {
+  chartGridProps,
+  chartMargin,
+  getDateXAxisProps,
+  getTooltipProps,
+  getYAxisProps,
+  renderLastPointDot,
+} from './chartTheme';
 
 const colors = ['#2563EB', '#60A5FA', '#0EA5E9', '#93C5FD'];
-
-function ChartTooltip({ active, payload, label }) {
-  if (!active || !payload?.length) {
-    return null;
-  }
-
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-lg">
-      <div className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">{label}</div>
-      <div className="mt-2 space-y-1">
-        {payload.map((entry) => (
-          <div key={entry.dataKey} className="text-sm font-semibold text-slate-900">
-            {entry.name}: {entry.value} kg
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 export default function StrengthChart({ data = [], keys = [] }) {
   if (!data.length || !keys.length) {
@@ -39,11 +28,11 @@ export default function StrengthChart({ data = [], keys = [] }) {
     <div className="dashboard-scroll overflow-x-auto">
       <div className="min-w-[720px]">
         <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-            <XAxis dataKey="date" stroke="#6B7280" />
-            <YAxis stroke="#6B7280" />
-            <Tooltip content={<ChartTooltip />} />
+          <LineChart data={data} margin={chartMargin}>
+            <CartesianGrid {...chartGridProps} />
+            <XAxis {...getDateXAxisProps('date', data.length)} />
+            <YAxis {...getYAxisProps([0, 'auto'])} />
+            <Tooltip {...getTooltipProps(' kg')} />
             <Legend />
             {keys.map((key, index) => (
               <Line
@@ -53,7 +42,7 @@ export default function StrengthChart({ data = [], keys = [] }) {
                 name={key}
                 stroke={colors[index % colors.length]}
                 strokeWidth={3}
-                dot={{ r: 3 }}
+                dot={renderLastPointDot(data.length, colors[index % colors.length], 3)}
               />
             ))}
           </LineChart>

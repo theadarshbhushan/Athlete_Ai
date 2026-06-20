@@ -1,6 +1,6 @@
-import { motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Trash2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 
 import {
@@ -18,6 +18,240 @@ function toLocalIso(date = new Date()) {
   return new Date(date.getTime() - offset).toISOString().slice(0, 10);
 }
 
+const WORKOUT_CONFIG = {
+  gym: {
+    showExercise: true,
+    showSetsReps: true,
+    showWeight: true,
+    showDistance: false,
+    showPace: false,
+    showResult: false,
+    showFlexibility: false,
+    showRecovery: false,
+    showDuration: true,
+    showIntensity: true,
+    showSoreness: true,
+    showMood: true,
+    showCalories: true,
+    requiresExercise: true,
+    requiresDuration: true,
+  },
+  running: {
+    showExercise: false,
+    showSetsReps: false,
+    showWeight: false,
+    showDistance: true,
+    showPace: true,
+    showResult: false,
+    showFlexibility: false,
+    showRecovery: false,
+    showDuration: true,
+    showIntensity: true,
+    showSoreness: true,
+    showMood: true,
+    showCalories: true,
+    requiresExercise: false,
+    requiresDuration: true,
+  },
+  cycling: {
+    showExercise: false,
+    showSetsReps: false,
+    showWeight: false,
+    showDistance: true,
+    showPace: true,
+    showResult: false,
+    showFlexibility: false,
+    showRecovery: false,
+    showDuration: true,
+    showIntensity: true,
+    showSoreness: true,
+    showMood: true,
+    showCalories: true,
+    requiresExercise: false,
+    requiresDuration: true,
+  },
+  swimming: {
+    showExercise: false,
+    showSetsReps: false,
+    showWeight: false,
+    showDistance: true,
+    showPace: true,
+    showResult: false,
+    showFlexibility: false,
+    showRecovery: false,
+    showDuration: true,
+    showIntensity: true,
+    showSoreness: true,
+    showMood: true,
+    showCalories: true,
+    requiresExercise: false,
+    requiresDuration: true,
+  },
+  badminton: {
+    showExercise: false,
+    showSetsReps: false,
+    showWeight: false,
+    showDistance: false,
+    showPace: false,
+    showResult: true,
+    showFlexibility: false,
+    showRecovery: false,
+    showDuration: true,
+    showIntensity: true,
+    showSoreness: true,
+    showMood: true,
+    showCalories: true,
+    requiresExercise: false,
+    requiresDuration: true,
+  },
+  football: {
+    showExercise: false,
+    showSetsReps: false,
+    showWeight: false,
+    showDistance: false,
+    showPace: false,
+    showResult: true,
+    showFlexibility: false,
+    showRecovery: false,
+    showDuration: true,
+    showIntensity: true,
+    showSoreness: true,
+    showMood: true,
+    showCalories: true,
+    requiresExercise: false,
+    requiresDuration: true,
+  },
+  basketball: {
+    showExercise: false,
+    showSetsReps: false,
+    showWeight: false,
+    showDistance: false,
+    showPace: false,
+    showResult: true,
+    showFlexibility: false,
+    showRecovery: false,
+    showDuration: true,
+    showIntensity: true,
+    showSoreness: true,
+    showMood: true,
+    showCalories: true,
+    requiresExercise: false,
+    requiresDuration: true,
+  },
+  cricket: {
+    showExercise: false,
+    showSetsReps: false,
+    showWeight: false,
+    showDistance: false,
+    showPace: false,
+    showResult: true,
+    showFlexibility: false,
+    showRecovery: false,
+    showDuration: true,
+    showIntensity: true,
+    showSoreness: true,
+    showMood: true,
+    showCalories: true,
+    requiresExercise: false,
+    requiresDuration: true,
+  },
+  mobility: {
+    showExercise: false,
+    showSetsReps: false,
+    showWeight: false,
+    showDistance: false,
+    showPace: false,
+    showResult: false,
+    showFlexibility: true,
+    showRecovery: false,
+    showDuration: true,
+    showIntensity: false,
+    showSoreness: true,
+    showMood: true,
+    showCalories: false,
+    requiresExercise: false,
+    requiresDuration: true,
+  },
+  rest: {
+    showExercise: false,
+    showSetsReps: false,
+    showWeight: false,
+    showDistance: false,
+    showPace: false,
+    showResult: false,
+    showFlexibility: false,
+    showRecovery: true,
+    showDuration: false,
+    showIntensity: false,
+    showSoreness: false,
+    showMood: true,
+    showCalories: false,
+    requiresExercise: false,
+    requiresDuration: false,
+  },
+  other: {
+    showExercise: true,
+    showSetsReps: false,
+    showWeight: false,
+    showDistance: false,
+    showPace: false,
+    showResult: false,
+    showFlexibility: false,
+    showRecovery: false,
+    showDuration: true,
+    showIntensity: true,
+    showSoreness: true,
+    showMood: true,
+    showCalories: true,
+    requiresExercise: true,
+    requiresDuration: true,
+  },
+};
+
+const WORKOUT_OPTIONS = [
+  { value: 'gym', label: '🏋️ Gym / Strength' },
+  { value: 'running', label: '🏃 Running' },
+  { value: 'cycling', label: '🚴 Cycling' },
+  { value: 'swimming', label: '🏊 Swimming' },
+  { value: 'badminton', label: '🏸 Badminton' },
+  { value: 'football', label: '⚽ Football' },
+  { value: 'basketball', label: '🏀 Basketball' },
+  { value: 'cricket', label: '🏏 Cricket' },
+  { value: 'mobility', label: '🧘 Mobility / Yoga' },
+  { value: 'rest', label: '😴 Rest / Recovery' },
+  { value: 'other', label: '🏅 Other' },
+];
+
+const TYPE_META = {
+  gym: { emoji: '🏋️', label: 'Gym / Strength', exercise: 'Strength Session' },
+  running: { emoji: '🏃', label: 'Running', exercise: 'Running Session' },
+  cycling: { emoji: '🚴', label: 'Cycling', exercise: 'Cycling Session' },
+  swimming: { emoji: '🏊', label: 'Swimming', exercise: 'Swimming Session' },
+  badminton: { emoji: '🏸', label: 'Badminton', exercise: 'Badminton Session' },
+  football: { emoji: '⚽', label: 'Football', exercise: 'Football Session' },
+  basketball: { emoji: '🏀', label: 'Basketball', exercise: 'Basketball Session' },
+  cricket: { emoji: '🏏', label: 'Cricket', exercise: 'Cricket Session' },
+  mobility: { emoji: '🧘', label: 'Mobility / Yoga', exercise: 'Mobility Session' },
+  rest: { emoji: '😴', label: 'Rest / Recovery', exercise: 'Recovery Day' },
+  other: { emoji: '🏅', label: 'Other', exercise: 'Training Session' },
+};
+
+const FIELD_TRANSITION = { duration: 0.2 };
+
+const hiddenFieldResets = {
+  exercise: '',
+  sets: '',
+  reps: '',
+  weight_kg: '',
+  distance_km: '',
+  pace_min_km: '',
+  match_result: '',
+  flexibility_focus: '',
+  recovery_activity: '',
+  duration_min: '',
+  calories_burned: '',
+};
+
 const initialForm = {
   date: toLocalIso(),
   type: 'gym',
@@ -25,29 +259,115 @@ const initialForm = {
   sets: '',
   reps: '',
   weight_kg: '',
+  distance_km: '',
+  pace_min_km: '',
   duration_min: '',
   intensity: 5,
   soreness: 5,
   mood: 5,
+  match_result: '',
+  flexibility_focus: '',
+  recovery_activity: '',
   calories_burned: '',
   notes: '',
 };
 
+function getConfig(type) {
+  return WORKOUT_CONFIG[type] || WORKOUT_CONFIG.other;
+}
+
+function getDisplayType(type) {
+  return TYPE_META[type] || TYPE_META.other;
+}
+
+function getDefaultExercise(type) {
+  return getDisplayType(type).exercise;
+}
+
+function buildSerializedNotes(form, config) {
+  const extras = {};
+
+  if (config.showDistance && form.distance_km) {
+    extras.distance_km = Number(form.distance_km);
+  }
+
+  if (config.showPace && form.pace_min_km) {
+    extras.pace_min_km = Number(form.pace_min_km);
+  }
+
+  if (config.showResult && form.match_result) {
+    extras.match_result = form.match_result;
+  }
+
+  if (config.showFlexibility && form.flexibility_focus) {
+    extras.flexibility_focus = form.flexibility_focus;
+  }
+
+  if (config.showRecovery && form.recovery_activity) {
+    extras.recovery_activity = form.recovery_activity;
+  }
+
+  if (form.notes) {
+    extras.text = form.notes;
+  }
+
+  return Object.keys(extras).length ? JSON.stringify(extras) : undefined;
+}
+
 function buildWorkoutPayload(form) {
+  const config = getConfig(form.type);
+
   return {
     date: form.date,
     type: form.type,
-    exercise: form.exercise,
-    duration_min: Number(form.duration_min),
-    intensity: Number(form.intensity),
-    soreness: Number(form.soreness),
-    mood: Number(form.mood),
-    sets: form.sets ? Number(form.sets) : undefined,
-    reps: form.reps ? Number(form.reps) : undefined,
-    weight_kg: form.weight_kg ? Number(form.weight_kg) : undefined,
-    calories_burned: form.calories_burned ? Number(form.calories_burned) : undefined,
-    notes: form.notes || undefined,
+    exercise: config.showExercise ? form.exercise : getDefaultExercise(form.type),
+    duration_min: Number(form.duration_min || 0),
+    intensity: Number(form.intensity || 5),
+    soreness: Number(form.soreness || 5),
+    mood: Number(form.mood || 5),
+    sets: config.showSetsReps && form.sets ? Number(form.sets) : undefined,
+    reps: config.showSetsReps && form.reps ? Number(form.reps) : undefined,
+    weight_kg: config.showWeight && form.weight_kg ? Number(form.weight_kg) : undefined,
+    calories_burned: config.showCalories && form.calories_burned ? Number(form.calories_burned) : undefined,
+    notes: buildSerializedNotes(form, config),
   };
+}
+
+function resetFieldsForType(form, type) {
+  const config = getConfig(type);
+  const nextForm = { ...form, type };
+
+  if (!config.showExercise) nextForm.exercise = hiddenFieldResets.exercise;
+  if (!config.showSetsReps) {
+    nextForm.sets = hiddenFieldResets.sets;
+    nextForm.reps = hiddenFieldResets.reps;
+  }
+  if (!config.showWeight) nextForm.weight_kg = hiddenFieldResets.weight_kg;
+  if (!config.showDistance) nextForm.distance_km = hiddenFieldResets.distance_km;
+  if (!config.showPace) nextForm.pace_min_km = hiddenFieldResets.pace_min_km;
+  if (!config.showResult) nextForm.match_result = hiddenFieldResets.match_result;
+  if (!config.showFlexibility) nextForm.flexibility_focus = hiddenFieldResets.flexibility_focus;
+  if (!config.showRecovery) nextForm.recovery_activity = hiddenFieldResets.recovery_activity;
+  if (!config.showDuration) nextForm.duration_min = hiddenFieldResets.duration_min;
+  if (!config.showCalories) nextForm.calories_burned = hiddenFieldResets.calories_burned;
+  if (!config.showIntensity) nextForm.intensity = 5;
+  if (!config.showSoreness) nextForm.soreness = 5;
+
+  return nextForm;
+}
+
+function AnimatedField({ children, className = '' }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, height: 0 }}
+      animate={{ opacity: 1, height: 'auto' }}
+      exit={{ opacity: 0, height: 0 }}
+      transition={FIELD_TRANSITION}
+      className={`overflow-hidden ${className}`.trim()}
+    >
+      <div className="pt-0">{children}</div>
+    </motion.div>
+  );
 }
 
 export default function WorkoutLogger() {
@@ -57,6 +377,8 @@ export default function WorkoutLogger() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
+
+  const currentConfig = useMemo(() => getConfig(form.type), [form.type]);
 
   const loadWorkouts = async () => {
     try {
@@ -79,15 +401,52 @@ export default function WorkoutLogger() {
     loadWorkouts();
   }, []);
 
+  useEffect(() => {
+    if (!currentConfig.showPace) {
+      if (form.pace_min_km !== '') {
+        setForm((current) => ({ ...current, pace_min_km: '' }));
+      }
+      return;
+    }
+
+    const distance = Number(form.distance_km);
+    const duration = Number(form.duration_min);
+
+    if (!distance || !duration) {
+      if (form.pace_min_km !== '') {
+        setForm((current) => ({ ...current, pace_min_km: '' }));
+      }
+      return;
+    }
+
+    const nextPace = (duration / distance).toFixed(2);
+    if (form.pace_min_km !== nextPace) {
+      setForm((current) => ({ ...current, pace_min_km: nextPace }));
+    }
+  }, [currentConfig.showPace, form.distance_km, form.duration_min, form.pace_min_km]);
+
   const handleChange = (event) => {
     const { name, value } = event.target;
+
+    if (name === 'type') {
+      setForm((current) => resetFieldsForType(current, value));
+      return;
+    }
+
     setForm((current) => ({ ...current, [name]: value }));
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
 
-    if (!form.date || !form.type || !form.exercise || !form.duration_min) {
+    const requiredExercise = currentConfig.requiresExercise && !form.exercise.trim();
+    const requiredDuration = currentConfig.requiresDuration && !form.duration_min;
+    const requiredDistance = currentConfig.showDistance && !form.distance_km;
+    const requiredResult = currentConfig.showResult && !form.match_result;
+    const requiredFlexibility = currentConfig.showFlexibility && !form.flexibility_focus;
+    const requiredRecovery = currentConfig.showRecovery && !form.recovery_activity;
+
+    if (!form.date || !form.type || requiredExercise || requiredDuration || requiredDistance || requiredResult || requiredFlexibility || requiredRecovery) {
       toast.error('Please complete the required workout fields.');
       return;
     }
@@ -173,66 +532,284 @@ export default function WorkoutLogger() {
               onChange={handleChange}
               className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none transition-all duration-300 focus:border-blue-600"
             >
-              <option value="gym">Gym</option>
-              <option value="running">Running</option>
-              <option value="sport">Sport</option>
-              <option value="mobility">Mobility</option>
-              <option value="rest">Rest</option>
+              {WORKOUT_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
             </select>
           </label>
 
-          <label>
-            <span className="mb-2 block text-sm font-semibold text-slate-700">Exercise Name</span>
-            <input
-              type="text"
-              name="exercise"
-              value={form.exercise}
-              onChange={handleChange}
-              placeholder="Back squat"
-              className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none transition-all duration-300 focus:border-blue-600"
-            />
-          </label>
+          <AnimatePresence mode="popLayout" initial={false}>
+            {currentConfig.showExercise ? (
+              <AnimatedField key="exercise">
+                <label className="block">
+                  <span className="mb-2 block text-sm font-semibold text-slate-700">Exercise Name</span>
+                  <input
+                    type="text"
+                    name="exercise"
+                    value={form.exercise}
+                    onChange={handleChange}
+                    placeholder="Back squat"
+                    className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none transition-all duration-300 focus:border-blue-600"
+                  />
+                </label>
+              </AnimatedField>
+            ) : null}
+          </AnimatePresence>
 
-          {[
-            ['sets', 'Sets'],
-            ['reps', 'Reps'],
-            ['weight_kg', 'Weight (kg)'],
-            ['duration_min', 'Duration (min)'],
-            ['calories_burned', 'Calories Burned'],
-          ].map(([name, label]) => (
-            <label key={name}>
-              <span className="mb-2 block text-sm font-semibold text-slate-700">{label}</span>
-              <input
-                type="number"
-                name={name}
-                value={form[name]}
-                onChange={handleChange}
-                className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none transition-all duration-300 focus:border-blue-600"
-              />
-            </label>
-          ))}
+          <AnimatePresence mode="popLayout" initial={false}>
+            {currentConfig.showSetsReps ? (
+              <AnimatedField key="sets">
+                <label className="block">
+                  <span className="mb-2 block text-sm font-semibold text-slate-700">Sets</span>
+                  <input
+                    type="number"
+                    name="sets"
+                    value={form.sets}
+                    onChange={handleChange}
+                    className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none transition-all duration-300 focus:border-blue-600"
+                  />
+                </label>
+              </AnimatedField>
+            ) : null}
+          </AnimatePresence>
 
-          {[
-            ['intensity', 'Intensity 1-10'],
-            ['soreness', 'Soreness 1-10'],
-            ['mood', 'Mood 1-10'],
-          ].map(([name, label]) => (
-            <label key={name}>
-              <div className="mb-2 flex items-center justify-between text-sm font-semibold text-slate-700">
-                <span>{label}</span>
-                <span className="font-mono text-blue-600">{form[name]}</span>
-              </div>
-              <input
-                type="range"
-                min="1"
-                max="10"
-                name={name}
-                value={form[name]}
-                onChange={handleChange}
-                className="h-2 w-full cursor-pointer appearance-none rounded-full bg-blue-100 accent-blue-600"
-              />
-            </label>
-          ))}
+          <AnimatePresence mode="popLayout" initial={false}>
+            {currentConfig.showSetsReps ? (
+              <AnimatedField key="reps">
+                <label className="block">
+                  <span className="mb-2 block text-sm font-semibold text-slate-700">Reps</span>
+                  <input
+                    type="number"
+                    name="reps"
+                    value={form.reps}
+                    onChange={handleChange}
+                    className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none transition-all duration-300 focus:border-blue-600"
+                  />
+                </label>
+              </AnimatedField>
+            ) : null}
+          </AnimatePresence>
+
+          <AnimatePresence mode="popLayout" initial={false}>
+            {currentConfig.showWeight ? (
+              <AnimatedField key="weight_kg">
+                <label className="block">
+                  <span className="mb-2 block text-sm font-semibold text-slate-700">Weight (kg)</span>
+                  <input
+                    type="number"
+                    name="weight_kg"
+                    value={form.weight_kg}
+                    onChange={handleChange}
+                    className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none transition-all duration-300 focus:border-blue-600"
+                  />
+                </label>
+              </AnimatedField>
+            ) : null}
+          </AnimatePresence>
+
+          <AnimatePresence mode="popLayout" initial={false}>
+            {currentConfig.showDistance ? (
+              <AnimatedField key="distance_km">
+                <label className="block">
+                  <span className="mb-2 block text-sm font-semibold text-slate-700">Distance (km)</span>
+                  <input
+                    type="number"
+                    step="0.1"
+                    name="distance_km"
+                    value={form.distance_km}
+                    onChange={handleChange}
+                    className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none transition-all duration-300 focus:border-blue-600"
+                  />
+                </label>
+              </AnimatedField>
+            ) : null}
+          </AnimatePresence>
+
+          <AnimatePresence mode="popLayout" initial={false}>
+            {currentConfig.showDuration ? (
+              <AnimatedField key="duration_min">
+                <label className="block">
+                  <span className="mb-2 block text-sm font-semibold text-slate-700">Duration (min)</span>
+                  <input
+                    type="number"
+                    name="duration_min"
+                    value={form.duration_min}
+                    onChange={handleChange}
+                    className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none transition-all duration-300 focus:border-blue-600"
+                  />
+                </label>
+              </AnimatedField>
+            ) : null}
+          </AnimatePresence>
+
+          <AnimatePresence mode="popLayout" initial={false}>
+            {currentConfig.showPace ? (
+              <AnimatedField key="pace_min_km">
+                <label className="block">
+                  <span className="mb-2 block text-sm font-semibold text-slate-700">Pace (min/km)</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    name="pace_min_km"
+                    value={form.pace_min_km}
+                    readOnly
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-500 outline-none"
+                  />
+                </label>
+              </AnimatedField>
+            ) : null}
+          </AnimatePresence>
+
+          <AnimatePresence mode="popLayout" initial={false}>
+            {currentConfig.showResult ? (
+              <AnimatedField key="match_result">
+                <label className="block">
+                  <span className="mb-2 block text-sm font-semibold text-slate-700">Match Result</span>
+                  <select
+                    name="match_result"
+                    value={form.match_result}
+                    onChange={handleChange}
+                    className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none transition-all duration-300 focus:border-blue-600"
+                  >
+                    <option value="">Select result</option>
+                    <option value="win">Win</option>
+                    <option value="loss">Loss</option>
+                    <option value="draw">Draw</option>
+                    <option value="practice">Practice</option>
+                  </select>
+                </label>
+              </AnimatedField>
+            ) : null}
+          </AnimatePresence>
+
+          <AnimatePresence mode="popLayout" initial={false}>
+            {currentConfig.showFlexibility ? (
+              <AnimatedField key="flexibility_focus">
+                <label className="block">
+                  <span className="mb-2 block text-sm font-semibold text-slate-700">Flexibility Focus</span>
+                  <select
+                    name="flexibility_focus"
+                    value={form.flexibility_focus}
+                    onChange={handleChange}
+                    className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none transition-all duration-300 focus:border-blue-600"
+                  >
+                    <option value="">Select focus</option>
+                    <option value="full_body">Full Body</option>
+                    <option value="upper">Upper</option>
+                    <option value="lower">Lower</option>
+                    <option value="core">Core</option>
+                  </select>
+                </label>
+              </AnimatedField>
+            ) : null}
+          </AnimatePresence>
+
+          <AnimatePresence mode="popLayout" initial={false}>
+            {currentConfig.showRecovery ? (
+              <AnimatedField key="recovery_activity">
+                <label className="block">
+                  <span className="mb-2 block text-sm font-semibold text-slate-700">Recovery Activity</span>
+                  <select
+                    name="recovery_activity"
+                    value={form.recovery_activity}
+                    onChange={handleChange}
+                    className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none transition-all duration-300 focus:border-blue-600"
+                  >
+                    <option value="">Select activity</option>
+                    <option value="sleep">Sleep</option>
+                    <option value="massage">Massage</option>
+                    <option value="ice_bath">Ice Bath</option>
+                    <option value="light_walk">Light Walk</option>
+                  </select>
+                </label>
+              </AnimatedField>
+            ) : null}
+          </AnimatePresence>
+
+          <AnimatePresence mode="popLayout" initial={false}>
+            {currentConfig.showCalories ? (
+              <AnimatedField key="calories_burned">
+                <label className="block">
+                  <span className="mb-2 block text-sm font-semibold text-slate-700">Calories Burned</span>
+                  <input
+                    type="number"
+                    name="calories_burned"
+                    value={form.calories_burned}
+                    onChange={handleChange}
+                    className="w-full rounded-2xl border border-slate-200 px-4 py-3 outline-none transition-all duration-300 focus:border-blue-600"
+                  />
+                </label>
+              </AnimatedField>
+            ) : null}
+          </AnimatePresence>
+
+          <AnimatePresence mode="popLayout" initial={false}>
+            {currentConfig.showIntensity ? (
+              <AnimatedField key="intensity">
+                <label className="block">
+                  <div className="mb-2 flex items-center justify-between text-sm font-semibold text-slate-700">
+                    <span>Intensity 1-10</span>
+                    <span className="font-mono text-blue-600">{form.intensity}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="1"
+                    max="10"
+                    name="intensity"
+                    value={form.intensity}
+                    onChange={handleChange}
+                    className="h-2 w-full cursor-pointer appearance-none rounded-full bg-blue-100 accent-blue-600"
+                  />
+                </label>
+              </AnimatedField>
+            ) : null}
+          </AnimatePresence>
+
+          <AnimatePresence mode="popLayout" initial={false}>
+            {currentConfig.showSoreness ? (
+              <AnimatedField key="soreness">
+                <label className="block">
+                  <div className="mb-2 flex items-center justify-between text-sm font-semibold text-slate-700">
+                    <span>Soreness 1-10</span>
+                    <span className="font-mono text-blue-600">{form.soreness}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="1"
+                    max="10"
+                    name="soreness"
+                    value={form.soreness}
+                    onChange={handleChange}
+                    className="h-2 w-full cursor-pointer appearance-none rounded-full bg-blue-100 accent-blue-600"
+                  />
+                </label>
+              </AnimatedField>
+            ) : null}
+          </AnimatePresence>
+
+          <AnimatePresence mode="popLayout" initial={false}>
+            {currentConfig.showMood ? (
+              <AnimatedField key="mood">
+                <label className="block">
+                  <div className="mb-2 flex items-center justify-between text-sm font-semibold text-slate-700">
+                    <span>Mood 1-10</span>
+                    <span className="font-mono text-blue-600">{form.mood}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="1"
+                    max="10"
+                    name="mood"
+                    value={form.mood}
+                    onChange={handleChange}
+                    className="h-2 w-full cursor-pointer appearance-none rounded-full bg-blue-100 accent-blue-600"
+                  />
+                </label>
+              </AnimatedField>
+            ) : null}
+          </AnimatePresence>
 
           <label>
             <span className="mb-2 block text-sm font-semibold text-slate-700">Date</span>
@@ -288,27 +865,31 @@ export default function WorkoutLogger() {
                 </tr>
               </thead>
               <tbody>
-                {workouts.map((workout) => (
-                  <tr key={workout.id} className="border-b border-slate-100 last:border-b-0">
-                    <td className="py-4 text-sm font-medium text-slate-700">{formatDisplayDate(workout.date)}</td>
-                    <td className="py-4 text-sm capitalize text-slate-500">{workout.type}</td>
-                    <td className="py-4 text-sm text-slate-900">{workout.exercise}</td>
-                    <td className="py-4 text-sm text-slate-500">{workout.duration_min} min</td>
-                    <td className="py-4 text-sm text-slate-500">{workout.intensity}/10</td>
-                    <td className="py-4 font-mono text-sm text-slate-900">{workout.training_load}</td>
-                    <td className="py-4 text-right">
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(workout.id)}
-                        disabled={deletingId === workout.id}
-                        className="inline-flex items-center gap-2 rounded-full border border-red-200 px-4 py-2 text-sm font-semibold text-red-500 transition-all duration-300 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-70"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        {deletingId === workout.id ? 'Deleting...' : 'Delete'}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {workouts.map((workout) => {
+                  const typeMeta = getDisplayType(workout.type);
+
+                  return (
+                    <tr key={workout.id} className="border-b border-slate-100 last:border-b-0">
+                      <td className="py-4 text-sm font-medium text-slate-700">{formatDisplayDate(workout.date)}</td>
+                      <td className="py-4 text-sm text-slate-500">{`${typeMeta.emoji} ${typeMeta.label}`}</td>
+                      <td className="py-4 text-sm text-slate-900">{workout.exercise}</td>
+                      <td className="py-4 text-sm text-slate-500">{workout.duration_min} min</td>
+                      <td className="py-4 text-sm text-slate-500">{workout.intensity}/10</td>
+                      <td className="py-4 font-mono text-sm text-slate-900">{workout.training_load}</td>
+                      <td className="py-4 text-right">
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(workout.id)}
+                          disabled={deletingId === workout.id}
+                          className="inline-flex items-center gap-2 rounded-full border border-red-200 px-4 py-2 text-sm font-semibold text-red-500 transition-all duration-300 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-70"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          {deletingId === workout.id ? 'Deleting...' : 'Delete'}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

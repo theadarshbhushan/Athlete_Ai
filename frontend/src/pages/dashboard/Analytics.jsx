@@ -1,6 +1,8 @@
 import { motion } from 'framer-motion';
+import { BarChart2, Maximize2, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';
 import {
   Area,
   AreaChart,
@@ -12,8 +14,8 @@ import {
   Line,
   LineChart,
   ReferenceArea,
-  Tooltip,
   ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
 } from 'recharts';
@@ -30,6 +32,16 @@ import {
 } from '../../api/analytics';
 import { getHealthHistory } from '../../api/health';
 import { getPredictionHistory } from '../../api/prediction';
+import {
+  chartGridProps,
+  chartMargin,
+  formatChartNumber,
+  getDateXAxisProps,
+  getTooltipProps,
+  getXAxisProps,
+  getYAxisProps,
+  renderLastPointDot,
+} from '../../components/charts/chartTheme';
 
 function formatShortDate(value) {
   if (!value) return '--';
@@ -40,48 +52,156 @@ function formatShortDate(value) {
   }).format(new Date(value));
 }
 
-function TooltipCard({ active, payload, label }) {
-  if (!active || !payload?.length) {
+function calculateSummaryStats(data = [], valueKeys = []) {
+  const values = data.flatMap((item) =>
+    valueKeys
+      .map((key) => Number(item?.[key]))
+      .filter((value) => Number.isFinite(value)),
+  );
+
+  if (!values.length) {
+    return null;
+  }
+
+  const total = values.reduce((sum, value) => sum + value, 0);
+
+  return {
+    min: Math.min(...values),
+    max: Math.max(...values),
+    average: total / values.length,
+    count: data.length,
+  };
+}
+
+function ChartSummaryBar({ stats }) {
+  if (!stats) {
     return null;
   }
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-lg">
-      <div className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">{label}</div>
-      <div className="mt-2 space-y-1">
-        {payload.map((entry) => (
-          <div key={entry.dataKey} className="text-sm font-semibold text-slate-900">
-            {entry.name}: {entry.value}
-          </div>
-        ))}
-      </div>
+    <div className="mt-6 flex flex-wrap gap-x-6 gap-y-2 border-t border-slate-200 pt-4 text-sm text-slate-500">
+      <span>Min {formatChartNumber(stats.min)}</span>
+      <span>Max {formatChartNumber(stats.max)}</span>
+      <span>Average {formatChartNumber(stats.average)}</span>
+      <span>{stats.count} data points</span>
     </div>
   );
 }
 
-function ChartCard({ title, subtitle, children }) {
+function ChartModal({ title, subtitle, stats, onClose, children }) {
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [onClose]);
+
   return (
-    <div className="rounded-[30px] border border-slate-100 bg-white p-6 shadow-sm">
-      <div className="mb-6">
-        <h3 className="font-body text-[1.75rem] font-semibold tracking-tight text-slate-950">{title}</h3>
-        <p className="mt-2 text-sm text-slate-500">{subtitle}</p>
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm" onClick={onClose}>
+      <div className="flex h-full items-center justify-center p-4">
+        <div
+          className="flex h-[80vh] w-[90vw] max-w-5xl flex-col rounded-2xl bg-white p-8 shadow-2xl"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h3 className="text-xl font-bold text-slate-900">{title}</h3>
+              <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
+            </div>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-full bg-slate-100 p-2 text-slate-600 transition-colors duration-200 hover:bg-slate-200"
+              aria-label={`Close ${title} chart`}
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          <div className="mt-8 flex-1 min-h-0">{children}</div>
+          <ChartSummaryBar stats={stats} />
+        </div>
       </div>
-      {children}
     </div>
   );
 }
 
-function ChartEmpty() {
-  return <div className="flex h-[300px] items-center justify-center text-sm text-slate-500">No data yet</div>;
+function ChartCard({ title, subtitle, stats, canExpand, renderChart }) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <>
+      <div className="group rounded-[30px] border border-slate-100 bg-white p-6 shadow-sm">
+        <div className="mb-6 flex items-start justify-between gap-4">
+          <div>
+            <h3 className="font-body text-[1.75rem] font-semibold tracking-tight text-slate-950">{title}</h3>
+            <p className="mt-2 text-sm text-slate-500">{subtitle}</p>
+          </div>
+
+          {canExpand ? (
+            <button
+              type="button"
+              onClick={() => setExpanded(true)}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-400 opacity-0 transition-all duration-200 hover:bg-slate-100 hover:text-slate-600 group-hover:opacity-100 focus-visible:opacity-100"
+              aria-label={`Expand ${title} chart`}
+            >
+              <Maximize2 className="h-4 w-4" />
+            </button>
+          ) : (
+            <div className="h-9 w-9" />
+          )}
+        </div>
+
+        {renderChart({ expanded: false, height: 300 })}
+      </div>
+
+      {expanded ? (
+        <ChartModal title={title} subtitle={subtitle} stats={stats} onClose={() => setExpanded(false)}>
+          {renderChart({ expanded: true, height: 450 })}
+        </ChartModal>
+      ) : null}
+    </>
+  );
 }
 
-function ChartSkeleton() {
-  return <div className="h-[300px] animate-pulse rounded-[24px] bg-slate-100" />;
+function ChartEmpty({ height = 300, onAction }) {
+  return (
+    <div
+      className="flex flex-col items-center justify-center rounded-[24px] bg-slate-50 px-6 text-center"
+      style={{ height }}
+    >
+      <BarChart2 className="h-10 w-10 text-slate-300" />
+      <p className="mt-4 text-base font-semibold text-slate-700">No data yet</p>
+      <p className="mt-2 text-sm text-slate-500">Log your workouts to see trends</p>
+      <button
+        type="button"
+        onClick={onAction}
+        className="mt-5 rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-blue-700"
+      >
+        Log Now
+      </button>
+    </div>
+  );
+}
+
+function ChartSkeleton({ height = 300 }) {
+  return <div className="animate-pulse rounded-[24px] bg-slate-100" style={{ height }} />;
 }
 
 function ChartWrap({ children, minWidth = 640 }) {
   return (
-    <div className="dashboard-scroll overflow-x-auto">
+    <div className="dashboard-scroll h-full overflow-x-auto">
       <div style={{ minWidth }}>{children}</div>
     </div>
   );
@@ -120,7 +240,12 @@ function riskToValue(label = 'Low') {
   return 25;
 }
 
+function hasEnoughPoints(data = []) {
+  return data.length > 1;
+}
+
 export default function Analytics() {
+  const navigate = useNavigate();
   const [range, setRange] = useState(30);
   const [datasets, setDatasets] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -214,6 +339,11 @@ export default function Analytics() {
     [datasets?.strengthProgress],
   );
 
+  const strengthStats = useMemo(
+    () => calculateSummaryStats(strengthChart.series, strengthChart.keys),
+    [strengthChart.keys, strengthChart.series],
+  );
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -234,9 +364,7 @@ export default function Analytics() {
               type="button"
               onClick={() => setRange(value)}
               className={`rounded-full px-4 py-2 text-sm font-semibold transition-all duration-300 ${
-                range === value
-                  ? 'bg-blue-600 text-white'
-                  : 'text-slate-600 hover:text-blue-600'
+                range === value ? 'bg-blue-600 text-white' : 'text-slate-600 hover:text-blue-600'
               }`}
             >
               Last {value} days
@@ -246,263 +374,358 @@ export default function Analytics() {
       </section>
 
       <section className="grid gap-6 xl:grid-cols-2">
-        <ChartCard title="Training Load" subtitle="Weekly load accumulation">
-          {isLoading ? (
-            <ChartSkeleton />
-          ) : datasets?.trainingLoad?.length ? (
-            <ChartWrap>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={datasets.trainingLoad}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                  <XAxis dataKey="week" stroke="#6B7280" />
-                  <YAxis stroke="#6B7280" />
-                  <Tooltip content={<TooltipCard />} />
-                  <Bar dataKey="training_load" name="Training Load" fill="#2563EB" radius={[12, 12, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </ChartWrap>
-          ) : (
-            <ChartEmpty />
-          )}
-        </ChartCard>
+        <ChartCard
+          title="Training Load"
+          subtitle="Weekly load accumulation"
+          stats={calculateSummaryStats(datasets?.trainingLoad ?? [], ['training_load'])}
+          canExpand={!isLoading && hasEnoughPoints(datasets?.trainingLoad ?? [])}
+          renderChart={({ height }) =>
+            isLoading ? (
+              <ChartSkeleton height={height} />
+            ) : hasEnoughPoints(datasets?.trainingLoad ?? []) ? (
+              <ChartWrap>
+                <ResponsiveContainer width="100%" height={height}>
+                  <BarChart data={datasets.trainingLoad} margin={chartMargin}>
+                    <CartesianGrid {...chartGridProps} />
+                    <XAxis {...getXAxisProps('week')} />
+                    <YAxis {...getYAxisProps([0, 'auto'])} />
+                    <Tooltip {...getTooltipProps()} />
+                    <Bar dataKey="training_load" name="Training Load" fill="#2563EB" radius={[12, 12, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartWrap>
+            ) : (
+              <ChartEmpty height={height} onAction={() => navigate('/dashboard/workout')} />
+            )
+          }
+        />
 
-        <ChartCard title="Recovery Score Trend" subtitle="Daily readiness pattern">
-          {isLoading ? (
-            <ChartSkeleton />
-          ) : datasets?.recoveryTrend?.length ? (
-            <ChartWrap>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={datasets.recoveryTrend}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                  <XAxis dataKey="date" stroke="#6B7280" />
-                  <YAxis stroke="#6B7280" />
-                  <Tooltip content={<TooltipCard />} />
-                  <Line
-                    type="monotone"
-                    dataKey="recovery_score"
-                    name="Recovery Score"
-                    stroke="#2563EB"
-                    strokeWidth={3}
-                    dot={{ fill: '#2563EB', r: 4 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </ChartWrap>
-          ) : (
-            <ChartEmpty />
-          )}
-        </ChartCard>
-      </section>
-
-      <section className="grid gap-6 xl:grid-cols-2">
-        <ChartCard title="Sleep Trend" subtitle="Daily sleep hours">
-          {isLoading ? (
-            <ChartSkeleton />
-          ) : datasets?.sleepTrend?.length ? (
-            <ChartWrap>
-              <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={datasets.sleepTrend}>
-                  <defs>
-                    <linearGradient id="analyticsSleepFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#60A5FA" stopOpacity={0.6} />
-                      <stop offset="95%" stopColor="#60A5FA" stopOpacity={0.05} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                  <XAxis dataKey="date" stroke="#6B7280" />
-                  <YAxis stroke="#6B7280" />
-                  <Tooltip content={<TooltipCard />} />
-                  <Area type="monotone" dataKey="sleep_hours" name="Sleep Hours" stroke="#60A5FA" fill="url(#analyticsSleepFill)" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </ChartWrap>
-          ) : (
-            <ChartEmpty />
-          )}
-        </ChartCard>
-
-        <ChartCard title="Workout Consistency" subtitle="Training days by week">
-          {isLoading ? (
-            <ChartSkeleton />
-          ) : datasets?.workoutConsistency?.length ? (
-            <ChartWrap>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={datasets.workoutConsistency}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                  <XAxis dataKey="week" stroke="#6B7280" />
-                  <YAxis stroke="#6B7280" />
-                  <Tooltip content={<TooltipCard />} />
-                  <Bar dataKey="days_trained" name="Days Trained" fill="#93C5FD" radius={[12, 12, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </ChartWrap>
-          ) : (
-            <ChartEmpty />
-          )}
-        </ChartCard>
-      </section>
-
-      <section className="grid gap-6 xl:grid-cols-2">
-        <ChartCard title="Strength Progress" subtitle="Estimated best weight by exercise">
-          {isLoading ? (
-            <ChartSkeleton />
-          ) : strengthChart.series.length && strengthChart.keys.length ? (
-            <ChartWrap minWidth={760}>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={strengthChart.series}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                  <XAxis dataKey="date" stroke="#6B7280" />
-                  <YAxis stroke="#6B7280" />
-                  <Tooltip content={<TooltipCard />} />
-                  <Legend />
-                  {strengthChart.keys.map((key, index) => (
+        <ChartCard
+          title="Recovery Score Trend"
+          subtitle="Daily readiness pattern"
+          stats={calculateSummaryStats(datasets?.recoveryTrend ?? [], ['recovery_score'])}
+          canExpand={!isLoading && hasEnoughPoints(datasets?.recoveryTrend ?? [])}
+          renderChart={({ height }) =>
+            isLoading ? (
+              <ChartSkeleton height={height} />
+            ) : hasEnoughPoints(datasets?.recoveryTrend ?? []) ? (
+              <ChartWrap>
+                <ResponsiveContainer width="100%" height={height}>
+                  <LineChart data={datasets.recoveryTrend} margin={chartMargin}>
+                    <CartesianGrid {...chartGridProps} />
+                    <XAxis {...getDateXAxisProps('date', datasets.recoveryTrend.length)} />
+                    <YAxis {...getYAxisProps([0, 'auto'])} />
+                    <Tooltip {...getTooltipProps()} />
                     <Line
-                      key={key}
                       type="monotone"
-                      dataKey={key}
-                      name={key}
-                      stroke={['#2563EB', '#60A5FA', '#0EA5E9', '#93C5FD'][index % 4]}
+                      dataKey="recovery_score"
+                      name="Recovery Score"
+                      stroke="#2563EB"
                       strokeWidth={3}
-                      dot={{ r: 3 }}
+                      dot={renderLastPointDot(datasets.recoveryTrend.length, '#2563EB')}
+                      activeDot={{ r: 5, fill: '#2563EB', stroke: '#FFFFFF', strokeWidth: 2 }}
                     />
-                  ))}
-                </LineChart>
-              </ResponsiveContainer>
-            </ChartWrap>
-          ) : (
-            <ChartEmpty />
-          )}
-        </ChartCard>
-
-        <ChartCard title="Calories Burned" subtitle="Daily calorie output">
-          {isLoading ? (
-            <ChartSkeleton />
-          ) : datasets?.caloriesTrend?.length ? (
-            <ChartWrap>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={datasets.caloriesTrend}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                  <XAxis dataKey="date" stroke="#6B7280" />
-                  <YAxis stroke="#6B7280" />
-                  <Tooltip content={<TooltipCard />} />
-                  <Bar dataKey="calories" name="Calories" fill="#2563EB" radius={[12, 12, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </ChartWrap>
-          ) : (
-            <ChartEmpty />
-          )}
-        </ChartCard>
+                  </LineChart>
+                </ResponsiveContainer>
+              </ChartWrap>
+            ) : (
+              <ChartEmpty height={height} onAction={() => navigate('/dashboard/smartwatch')} />
+            )
+          }
+        />
       </section>
 
       <section className="grid gap-6 xl:grid-cols-2">
-        <ChartCard title="Body Fat Progress" subtitle="Estimated composition over time">
-          {isLoading ? (
-            <ChartSkeleton />
-          ) : datasets?.bodyfatProgress?.length ? (
-            <ChartWrap>
-              <ResponsiveContainer width="100%" height={300}>
-                <ComposedChart data={datasets.bodyfatProgress}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                  <XAxis dataKey="date" stroke="#6B7280" />
-                  <YAxis stroke="#6B7280" />
-                  <Tooltip content={<TooltipCard />} />
-                  <Area type="monotone" dataKey="range_high" name="Range High" stroke="#93C5FD" fill="#DBEAFE" />
-                  <Line type="monotone" dataKey="estimate" name="Estimate" stroke="#2563EB" strokeWidth={3} />
-                  <Line type="monotone" dataKey="range_low" name="Range Low" stroke="#60A5FA" strokeDasharray="6 6" />
-                </ComposedChart>
-              </ResponsiveContainer>
-            </ChartWrap>
-          ) : (
-            <ChartEmpty />
-          )}
-        </ChartCard>
+        <ChartCard
+          title="Sleep Trend"
+          subtitle="Daily sleep hours"
+          stats={calculateSummaryStats(datasets?.sleepTrend ?? [], ['sleep_hours'])}
+          canExpand={!isLoading && hasEnoughPoints(datasets?.sleepTrend ?? [])}
+          renderChart={({ expanded, height }) =>
+            isLoading ? (
+              <ChartSkeleton height={height} />
+            ) : hasEnoughPoints(datasets?.sleepTrend ?? []) ? (
+              <ChartWrap>
+                <ResponsiveContainer width="100%" height={height}>
+                  <AreaChart data={datasets.sleepTrend} margin={chartMargin}>
+                    <defs>
+                      <linearGradient
+                        id={expanded ? 'analyticsSleepFillExpanded' : 'analyticsSleepFill'}
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="1"
+                      >
+                        <stop offset="5%" stopColor="#60A5FA" stopOpacity={0.6} />
+                        <stop offset="95%" stopColor="#60A5FA" stopOpacity={0.05} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid {...chartGridProps} />
+                    <XAxis {...getDateXAxisProps('date', datasets.sleepTrend.length)} />
+                    <YAxis {...getYAxisProps([0, 'auto'])} />
+                    <Tooltip {...getTooltipProps(' hrs')} />
+                    <Area
+                      type="monotone"
+                      dataKey="sleep_hours"
+                      name="Sleep Hours"
+                      stroke="#60A5FA"
+                      fill={`url(#${expanded ? 'analyticsSleepFillExpanded' : 'analyticsSleepFill'})`}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </ChartWrap>
+            ) : (
+              <ChartEmpty height={height} onAction={() => navigate('/dashboard/smartwatch')} />
+            )
+          }
+        />
 
-        <ChartCard title="Performance Score" subtitle="Composite daily score">
-          {isLoading ? (
-            <ChartSkeleton />
-          ) : datasets?.performanceScore?.length ? (
-            <ChartWrap>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={datasets.performanceScore}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                  <XAxis dataKey="date" stroke="#6B7280" />
-                  <YAxis stroke="#6B7280" />
-                  <Tooltip content={<TooltipCard />} />
-                  <Line
-                    type="monotone"
-                    dataKey="performance_score"
-                    name="Performance Score"
-                    stroke="#2563EB"
-                    strokeWidth={3}
-                    dot={{ fill: '#2563EB', r: 4 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </ChartWrap>
-          ) : (
-            <ChartEmpty />
-          )}
-        </ChartCard>
+        <ChartCard
+          title="Workout Consistency"
+          subtitle="Training days by week"
+          stats={calculateSummaryStats(datasets?.workoutConsistency ?? [], ['days_trained'])}
+          canExpand={!isLoading && hasEnoughPoints(datasets?.workoutConsistency ?? [])}
+          renderChart={({ height }) =>
+            isLoading ? (
+              <ChartSkeleton height={height} />
+            ) : hasEnoughPoints(datasets?.workoutConsistency ?? []) ? (
+              <ChartWrap>
+                <ResponsiveContainer width="100%" height={height}>
+                  <BarChart data={datasets.workoutConsistency} margin={chartMargin}>
+                    <CartesianGrid {...chartGridProps} />
+                    <XAxis {...getXAxisProps('week')} />
+                    <YAxis {...getYAxisProps([0, 'auto'])} />
+                    <Tooltip {...getTooltipProps()} />
+                    <Bar dataKey="days_trained" name="Days Trained" fill="#93C5FD" radius={[12, 12, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartWrap>
+            ) : (
+              <ChartEmpty height={height} onAction={() => navigate('/dashboard/workout')} />
+            )
+          }
+        />
       </section>
 
       <section className="grid gap-6 xl:grid-cols-2">
-        <ChartCard title="Injury Risk Timeline" subtitle="Risk zones across recent predictions">
-          {isLoading ? (
-            <ChartSkeleton />
-          ) : datasets?.injuryRiskTimeline?.length ? (
-            <ChartWrap>
-              <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={datasets.injuryRiskTimeline}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                  <XAxis dataKey="date" stroke="#6B7280" />
-                  <YAxis stroke="#6B7280" domain={[0, 100]} />
-                  <ReferenceArea y1={0} y2={35} fill="#DCFCE7" fillOpacity={0.6} />
-                  <ReferenceArea y1={35} y2={65} fill="#FEF3C7" fillOpacity={0.7} />
-                  <ReferenceArea y1={65} y2={100} fill="#FEE2E2" fillOpacity={0.7} />
-                  <Tooltip content={<TooltipCard />} />
-                  <Area
-                    type="monotone"
-                    dataKey="risk_value"
-                    name="Risk Level"
-                    stroke="#2563EB"
-                    fill="#DBEAFE"
-                    strokeWidth={3}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </ChartWrap>
-          ) : (
-            <ChartEmpty />
-          )}
-        </ChartCard>
+        <ChartCard
+          title="Strength Progress"
+          subtitle="Estimated best weight by exercise"
+          stats={strengthStats}
+          canExpand={!isLoading && hasEnoughPoints(strengthChart.series)}
+          renderChart={({ height }) =>
+            isLoading ? (
+              <ChartSkeleton height={height} />
+            ) : hasEnoughPoints(strengthChart.series) && strengthChart.keys.length ? (
+              <ChartWrap minWidth={760}>
+                <ResponsiveContainer width="100%" height={height}>
+                  <LineChart data={strengthChart.series} margin={chartMargin}>
+                    <CartesianGrid {...chartGridProps} />
+                    <XAxis {...getDateXAxisProps('date', strengthChart.series.length)} />
+                    <YAxis {...getYAxisProps([0, 'auto'])} />
+                    <Tooltip {...getTooltipProps(' kg')} />
+                    <Legend />
+                    {strengthChart.keys.map((key, index) => {
+                      const stroke = ['#2563EB', '#60A5FA', '#0EA5E9', '#93C5FD'][index % 4];
+                      return (
+                        <Line
+                          key={key}
+                          type="monotone"
+                          dataKey={key}
+                          name={key}
+                          stroke={stroke}
+                          strokeWidth={3}
+                          dot={renderLastPointDot(strengthChart.series.length, stroke, 3)}
+                          activeDot={{ r: 5, fill: stroke, stroke: '#FFFFFF', strokeWidth: 2 }}
+                        />
+                      );
+                    })}
+                  </LineChart>
+                </ResponsiveContainer>
+              </ChartWrap>
+            ) : (
+              <ChartEmpty height={height} onAction={() => navigate('/dashboard/workout')} />
+            )
+          }
+        />
 
-        <ChartCard title="Heart Rate Trend" subtitle="Resting heart rate over time">
-          {isLoading ? (
-            <ChartSkeleton />
-          ) : datasets?.heartRateTrend?.length ? (
-            <ChartWrap>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={datasets.heartRateTrend}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                  <XAxis dataKey="date" stroke="#6B7280" />
-                  <YAxis stroke="#6B7280" />
-                  <Tooltip content={<TooltipCard />} />
-                  <Line
-                    type="monotone"
-                    dataKey="resting_hr"
-                    name="Resting HR"
-                    stroke="#2563EB"
-                    strokeWidth={3}
-                    dot={{ fill: '#2563EB', r: 4 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </ChartWrap>
-          ) : (
-            <ChartEmpty />
-          )}
-        </ChartCard>
+        <ChartCard
+          title="Calories Burned"
+          subtitle="Daily calorie output"
+          stats={calculateSummaryStats(datasets?.caloriesTrend ?? [], ['calories'])}
+          canExpand={!isLoading && hasEnoughPoints(datasets?.caloriesTrend ?? [])}
+          renderChart={({ height }) =>
+            isLoading ? (
+              <ChartSkeleton height={height} />
+            ) : hasEnoughPoints(datasets?.caloriesTrend ?? []) ? (
+              <ChartWrap>
+                <ResponsiveContainer width="100%" height={height}>
+                  <BarChart data={datasets.caloriesTrend} margin={chartMargin}>
+                    <CartesianGrid {...chartGridProps} />
+                    <XAxis {...getDateXAxisProps('date', datasets.caloriesTrend.length)} />
+                    <YAxis {...getYAxisProps([0, 'auto'])} />
+                    <Tooltip {...getTooltipProps()} />
+                    <Bar dataKey="calories" name="Calories" fill="#2563EB" radius={[12, 12, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartWrap>
+            ) : (
+              <ChartEmpty height={height} onAction={() => navigate('/dashboard/smartwatch')} />
+            )
+          }
+        />
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-2">
+        <ChartCard
+          title="Body Fat Progress"
+          subtitle="Estimated composition over time"
+          stats={calculateSummaryStats(datasets?.bodyfatProgress ?? [], ['estimate'])}
+          canExpand={!isLoading && hasEnoughPoints(datasets?.bodyfatProgress ?? [])}
+          renderChart={({ height }) =>
+            isLoading ? (
+              <ChartSkeleton height={height} />
+            ) : hasEnoughPoints(datasets?.bodyfatProgress ?? []) ? (
+              <ChartWrap>
+                <ResponsiveContainer width="100%" height={height}>
+                  <ComposedChart data={datasets.bodyfatProgress} margin={chartMargin}>
+                    <CartesianGrid {...chartGridProps} />
+                    <XAxis {...getDateXAxisProps('date', datasets.bodyfatProgress.length)} />
+                    <YAxis {...getYAxisProps([0, 'auto'])} />
+                    <Tooltip {...getTooltipProps('%')} />
+                    <Area type="monotone" dataKey="range_high" name="Range High" stroke="#93C5FD" fill="#DBEAFE" />
+                    <Line
+                      type="monotone"
+                      dataKey="estimate"
+                      name="Estimate"
+                      stroke="#2563EB"
+                      strokeWidth={3}
+                      dot={renderLastPointDot(datasets.bodyfatProgress.length, '#2563EB')}
+                      activeDot={{ r: 5, fill: '#2563EB', stroke: '#FFFFFF', strokeWidth: 2 }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="range_low"
+                      name="Range Low"
+                      stroke="#60A5FA"
+                      strokeDasharray="6 6"
+                      dot={renderLastPointDot(datasets.bodyfatProgress.length, '#60A5FA')}
+                      activeDot={{ r: 5, fill: '#60A5FA', stroke: '#FFFFFF', strokeWidth: 2 }}
+                    />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </ChartWrap>
+            ) : (
+              <ChartEmpty height={height} onAction={() => navigate('/dashboard/bodyfat')} />
+            )
+          }
+        />
+
+        <ChartCard
+          title="Performance Score"
+          subtitle="Composite daily score"
+          stats={calculateSummaryStats(datasets?.performanceScore ?? [], ['performance_score'])}
+          canExpand={!isLoading && hasEnoughPoints(datasets?.performanceScore ?? [])}
+          renderChart={({ height }) =>
+            isLoading ? (
+              <ChartSkeleton height={height} />
+            ) : hasEnoughPoints(datasets?.performanceScore ?? []) ? (
+              <ChartWrap>
+                <ResponsiveContainer width="100%" height={height}>
+                  <LineChart data={datasets.performanceScore} margin={chartMargin}>
+                    <CartesianGrid {...chartGridProps} />
+                    <XAxis {...getDateXAxisProps('date', datasets.performanceScore.length)} />
+                    <YAxis {...getYAxisProps([0, 'auto'])} />
+                    <Tooltip {...getTooltipProps()} />
+                    <Line
+                      type="monotone"
+                      dataKey="performance_score"
+                      name="Performance Score"
+                      stroke="#2563EB"
+                      strokeWidth={3}
+                      dot={renderLastPointDot(datasets.performanceScore.length, '#2563EB')}
+                      activeDot={{ r: 5, fill: '#2563EB', stroke: '#FFFFFF', strokeWidth: 2 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </ChartWrap>
+            ) : (
+              <ChartEmpty height={height} onAction={() => navigate('/dashboard/workout')} />
+            )
+          }
+        />
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-2">
+        <ChartCard
+          title="Injury Risk Timeline"
+          subtitle="Risk zones across recent predictions"
+          stats={calculateSummaryStats(datasets?.injuryRiskTimeline ?? [], ['risk_value'])}
+          canExpand={!isLoading && hasEnoughPoints(datasets?.injuryRiskTimeline ?? [])}
+          renderChart={({ height }) =>
+            isLoading ? (
+              <ChartSkeleton height={height} />
+            ) : hasEnoughPoints(datasets?.injuryRiskTimeline ?? []) ? (
+              <ChartWrap>
+                <ResponsiveContainer width="100%" height={height}>
+                  <AreaChart data={datasets.injuryRiskTimeline} margin={chartMargin}>
+                    <CartesianGrid {...chartGridProps} />
+                    <XAxis {...getDateXAxisProps('date', datasets.injuryRiskTimeline.length)} />
+                    <YAxis {...getYAxisProps([0, 'auto'])} />
+                    <ReferenceArea y1={0} y2={35} fill="#DCFCE7" fillOpacity={0.6} />
+                    <ReferenceArea y1={35} y2={65} fill="#FEF3C7" fillOpacity={0.7} />
+                    <ReferenceArea y1={65} y2={100} fill="#FEE2E2" fillOpacity={0.7} />
+                    <Tooltip {...getTooltipProps()} />
+                    <Area
+                      type="monotone"
+                      dataKey="risk_value"
+                      name="Risk Level"
+                      stroke="#2563EB"
+                      fill="#DBEAFE"
+                      strokeWidth={3}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </ChartWrap>
+            ) : (
+              <ChartEmpty height={height} onAction={() => navigate('/dashboard/workout')} />
+            )
+          }
+        />
+
+        <ChartCard
+          title="Heart Rate Trend"
+          subtitle="Resting heart rate over time"
+          stats={calculateSummaryStats(datasets?.heartRateTrend ?? [], ['resting_hr'])}
+          canExpand={!isLoading && hasEnoughPoints(datasets?.heartRateTrend ?? [])}
+          renderChart={({ height }) =>
+            isLoading ? (
+              <ChartSkeleton height={height} />
+            ) : hasEnoughPoints(datasets?.heartRateTrend ?? []) ? (
+              <ChartWrap>
+                <ResponsiveContainer width="100%" height={height}>
+                  <LineChart data={datasets.heartRateTrend} margin={chartMargin}>
+                    <CartesianGrid {...chartGridProps} />
+                    <XAxis {...getDateXAxisProps('date', datasets.heartRateTrend.length)} />
+                    <YAxis {...getYAxisProps([0, 'auto'])} />
+                    <Tooltip {...getTooltipProps(' bpm')} />
+                    <Line
+                      type="monotone"
+                      dataKey="resting_hr"
+                      name="Resting HR"
+                      stroke="#2563EB"
+                      strokeWidth={3}
+                      dot={renderLastPointDot(datasets.heartRateTrend.length, '#2563EB')}
+                      activeDot={{ r: 5, fill: '#2563EB', stroke: '#FFFFFF', strokeWidth: 2 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </ChartWrap>
+            ) : (
+              <ChartEmpty height={height} onAction={() => navigate('/dashboard/smartwatch')} />
+            )
+          }
+        />
       </section>
     </motion.div>
   );

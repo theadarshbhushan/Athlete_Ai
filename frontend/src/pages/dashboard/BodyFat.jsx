@@ -19,6 +19,14 @@ import {
   getBodyfatHistory,
   uploadBodyfatPhoto,
 } from '../../api/bodyfat';
+import {
+  chartGridProps,
+  chartMargin,
+  getDateXAxisProps,
+  getTooltipProps,
+  getYAxisProps,
+  renderLastPointDot,
+} from '../../components/charts/chartTheme';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import RiskBadge from '../../components/ui/RiskBadge';
 import { useAuth } from '../../hooks/useAuth';
@@ -289,14 +297,28 @@ export default function BodyFat() {
           <div className="dashboard-scroll overflow-x-auto">
             <div className="min-w-[720px]">
               <ResponsiveContainer width="100%" height={320}>
-                <ComposedChart data={history}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                  <XAxis dataKey="date" stroke="#6B7280" />
-                  <YAxis stroke="#6B7280" />
-                  <Tooltip />
+                <ComposedChart data={history} margin={chartMargin}>
+                  <CartesianGrid {...chartGridProps} />
+                  <XAxis {...getDateXAxisProps('date', history.length)} />
+                  <YAxis {...getYAxisProps([0, 'auto'])} />
+                  <Tooltip {...getTooltipProps('%')} />
                   <Area type="monotone" dataKey="range_high" stroke="#93C5FD" fill="#DBEAFE" name="Range High" />
-                  <Line type="monotone" dataKey="estimate" stroke="#2563EB" strokeWidth={3} name="Estimate" />
-                  <Line type="monotone" dataKey="range_low" stroke="#60A5FA" strokeDasharray="6 6" name="Range Low" />
+                  <Line
+                    type="monotone"
+                    dataKey="estimate"
+                    stroke="#2563EB"
+                    strokeWidth={3}
+                    name="Estimate"
+                    dot={renderLastPointDot(history.length, '#2563EB')}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="range_low"
+                    stroke="#60A5FA"
+                    strokeDasharray="6 6"
+                    name="Range Low"
+                    dot={renderLastPointDot(history.length, '#60A5FA')}
+                  />
                   {goalLine ? (
                     <ReferenceLine y={goalLine} stroke="#22C55E" strokeDasharray="6 6" label="Goal" />
                   ) : null}
