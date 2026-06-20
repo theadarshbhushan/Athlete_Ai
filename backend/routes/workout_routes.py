@@ -12,11 +12,32 @@ router = APIRouter(prefix="/workouts", tags=["Workouts"])
 
 @router.post("")
 async def log_workout(
-    payload: WorkoutLog,
+    workout: WorkoutLog,
     current_user: dict = Depends(get_current_user),
 ):
+    doc = {
+        "user_id": current_user["id"],
+        "date": workout.date,
+        "type": workout.type,
+        "exercise": workout.exercise,
+        "sets": workout.sets,
+        "reps": workout.reps,
+        "weight_kg": workout.weight_kg,
+        "duration_min": workout.duration_min,
+        "intensity": workout.intensity,
+        "soreness": workout.soreness,
+        "mood": workout.mood,
+        "calories_burned": workout.calories_burned,
+        "notes": workout.notes,
+        "distance_km": workout.distance_km,
+        "pace": workout.pace,
+        "match_result": workout.match_result,
+        "flexibility_focus": workout.flexibility_focus,
+        "recovery_activity": workout.recovery_activity,
+        "training_load": (workout.duration_min or 0) * (workout.intensity or 1),
+    }
     workout = await workout_service.create_workout(
-        current_user["id"], payload.model_dump()
+        current_user["id"], doc
     )
     return success_response(workout, "Workout logged")
 
