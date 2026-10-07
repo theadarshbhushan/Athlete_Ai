@@ -1,8 +1,17 @@
+import os
 from motor.motor_asyncio import AsyncIOMotorClient
 
 from config.settings import settings
 
-client = AsyncIOMotorClient(settings.MONGODB_URL)
+mongo_uri = (
+    os.getenv("MONGO_URI")
+    or os.getenv("MONGODB_URI")
+    or os.getenv("MONGODB_URL")
+    or settings.MONGODB_URL
+)
+
+# Set serverSelectionTimeoutMS to 5000ms (5 seconds) so database connectivity issues fail fast
+client = AsyncIOMotorClient(mongo_uri, serverSelectionTimeoutMS=5000)
 db = client["athleteai"]
 
 users_col = db["users"]

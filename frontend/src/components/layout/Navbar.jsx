@@ -20,9 +20,7 @@ export default function Navbar() {
   // Close mobile menu on Escape key press
   useEffect(() => {
     const handleKeyDown = (event) => {
-      if (event.key === 'Escape') {
-        setIsOpen(false);
-      }
+      if (event.key === 'Escape') setIsOpen(false);
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -30,22 +28,16 @@ export default function Navbar() {
 
   // Prevent background scrolling when mobile menu is open
   useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'unset';
-    }
+    document.body.style.overflow = isOpen ? 'hidden' : 'unset';
     return () => {
       document.body.style.overflow = 'unset';
     };
   }, [isOpen]);
 
-  // Auto-close menu if resized to desktop viewport
+  // Auto-close menu if resized to desktop viewport (>= 768px)
   useEffect(() => {
     const handleResize = () => {
-      if (window.innerWidth >= 768) {
-        setIsOpen(false);
-      }
+      if (window.innerWidth >= 768) setIsOpen(false);
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
@@ -64,7 +56,7 @@ export default function Navbar() {
             <span className="font-display text-2xl tracking-tight text-slate-950">Athlete AI</span>
           </Link>
 
-          {/* Desktop Navigation Links: strictly hidden on mobile with hidden md:flex */}
+          {/* Desktop Navigation Links */}
           <nav className="hidden items-center gap-6 text-sm font-semibold text-slate-700 md:flex lg:gap-8">
             {navLinks.map((item) => (
               <a
@@ -77,7 +69,7 @@ export default function Navbar() {
             ))}
           </nav>
 
-          {/* Desktop Action Buttons: strictly hidden on mobile with hidden md:flex */}
+          {/* Desktop Action Buttons */}
           <div className="hidden items-center gap-3 md:flex">
             {token ? (
               <>
@@ -108,7 +100,7 @@ export default function Navbar() {
             )}
           </div>
 
-          {/* Mobile Hamburger Toggle: strictly visible only on mobile with md:hidden */}
+          {/* Mobile Hamburger Toggle */}
           <button
             type="button"
             onClick={() => setIsOpen((prev) => !prev)}
@@ -121,35 +113,34 @@ export default function Navbar() {
         </div>
       </header>
 
-      {/* Mobile Menu Fullscreen Overlay: strictly rendered only when isOpen is true and hidden on md+ */}
+      {/* Mobile Menu Fullscreen Overlay */}
       <AnimatePresence>
         {isOpen && (
           <div
-            className={`fixed inset-0 z-50 md:hidden ${isOpen ? 'block' : 'hidden'}`}
+            className="fixed inset-0 z-50 md:hidden"
             role="dialog"
             aria-modal="true"
           >
-            {/* Backdrop: Clicking outside closes the menu */}
+            {/* Dark Backdrop */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
               onClick={() => setIsOpen(false)}
-              className="fixed inset-0 bg-black/40 backdrop-blur-sm"
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm"
               aria-hidden="true"
             />
 
-            {/* Floating Mobile Card Container */}
+            {/* Mobile Drawer/Modal */}
             <div className="fixed inset-x-0 top-0 p-4 sm:p-6">
               <motion.div
                 initial={{ opacity: 0, y: -20, scale: 0.96 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -20, scale: 0.96 }}
-                transition={{ duration: 0.22, ease: 'easeOut' }}
+                transition={{ duration: 0.2, ease: 'easeOut' }}
                 className="relative mx-auto max-w-lg rounded-[28px] border border-slate-200 bg-white p-6 shadow-2xl"
               >
-                {/* Header with Title and Close Button */}
                 <div className="flex items-center justify-between border-b border-slate-100 pb-4">
                   <Link
                     to="/"
@@ -170,7 +161,6 @@ export default function Navbar() {
                   </button>
                 </div>
 
-                {/* Navigation Links */}
                 <nav className="mt-4 flex flex-col gap-1">
                   {navLinks.map((item) => (
                     <a
@@ -184,7 +174,6 @@ export default function Navbar() {
                   ))}
                 </nav>
 
-                {/* Action Buttons */}
                 <div className="mt-6 flex flex-col gap-3 border-t border-slate-100 pt-4">
                   {token ? (
                     <>
@@ -196,14 +185,6 @@ export default function Navbar() {
                         <LayoutDashboard className="h-4 w-4" />
                         Dashboard
                       </Link>
-                      <Link
-                        to="/dashboard/profile"
-                        onClick={() => setIsOpen(false)}
-                        className="rounded-2xl bg-blue-600 px-4 py-3.5 text-center font-semibold text-white shadow-md transition-all hover:bg-blue-700"
-                      >
-                        My Account
-                      </Link>
-                      <AccountSwitcher compact />
                     </>
                   ) : (
                     <>

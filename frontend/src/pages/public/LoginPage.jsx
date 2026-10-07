@@ -29,9 +29,12 @@ export default function LoginPage() {
       setIsSubmitting(true);
       await login(form.email, form.password);
     } catch (error) {
-      toast.error(
-        error?.response?.data?.detail?.message || 'Unable to sign in with those credentials.',
-      );
+      const message =
+        error?.response?.data?.detail?.message ||
+        (typeof error?.response?.data?.detail === 'string' ? error.response.data.detail : null) ||
+        error?.response?.data?.message ||
+        'Unable to sign in with those credentials.';
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }

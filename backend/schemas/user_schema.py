@@ -4,15 +4,15 @@ from pydantic import BaseModel, EmailStr, Field
 
 
 class UserRegister(BaseModel):
-    name: str
+    name: str = Field(..., min_length=1, description="Full Name")
     email: EmailStr
-    password: str
-    age: int
-    height: float  # cm
-    weight: float  # kg
-    gender: str  # male / female
-    sport: str  # badminton / running / gym / cycling / other
-    goal: str  # fat loss / muscle gain / performance / endurance
+    password: str = Field(..., min_length=6, description="Password (at least 6 characters)")
+    age: int = Field(..., gt=0, le=120)
+    height: float = Field(..., gt=0)  # cm
+    weight: float = Field(..., gt=0)  # kg
+    gender: str = "male"  # male / female
+    sport: str = "badminton"  # badminton / running / gym / cycling / other
+    goal: str = "fat loss"  # fat loss / muscle gain / performance / endurance
 
 
 class UserLogin(BaseModel):

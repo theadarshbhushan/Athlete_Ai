@@ -48,7 +48,12 @@ export default function SignupPage() {
         weight: Number(form.weight),
       });
     } catch (error) {
-      toast.error(error?.response?.data?.detail?.message || 'Unable to create your account.');
+      const message =
+        error?.response?.data?.detail?.message ||
+        (typeof error?.response?.data?.detail === 'string' ? error.response.data.detail : null) ||
+        error?.response?.data?.message ||
+        'Unable to create your account.';
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }

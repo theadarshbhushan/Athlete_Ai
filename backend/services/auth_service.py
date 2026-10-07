@@ -8,6 +8,12 @@ from utils.password_hashing import hash_password, verify_password
 from utils.response_handler import error_response
 
 
+import logging
+from pymongo.errors import PyMongoError
+
+logger = logging.getLogger("athlete_ai.auth_service")
+
+
 def _serialize_user(user: dict) -> dict:
     user = dict(user)
     user["id"] = str(user["_id"])
@@ -17,18 +23,50 @@ def _serialize_user(user: dict) -> dict:
 
 
 async def register_user(user_data: dict) -> dict:
-    existing = await users_col.find_one({"email": user_data["email"]})
+    email = user_data.get("email", "").strip().lower()
+
+    # 1. Check if user already exists
+    try:
+        existing = await users_col.find_one({"email": email})
+    except PyMongoError as pe:
+        logger.error(f"MongoDB connection/query error while checking {email}: {pe}", exc_info=True)
+        error_response(f"Database connection error: {str(pe)}", 503)
+    except Exception as exc:
+        logger.error(f"Unexpected error querying user {email}: {exc}", exc_info=True)
+        error_response(f"Unable to query database: {str(exc)}", 500)
+
     if existing:
         error_response("Email already registered", 409)
 
+    # 2. Hash password
+    try:
+        hashed_password = hash_password(user_data["password"])
+    except Exception as exc:
+        logger.error(f"Password encryption failed for {email}: {exc}", exc_info=True)
+        error_response(f"Password encryption failed: {str(exc)}", 400)
+
+    # 3. Prepare user document
     insert_doc = {
         **user_data,
-        "password": hash_password(user_data["password"]),
+        "email": email,
+        "password": hashed_password,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
 
-    result = await users_col.insert_one(insert_doc)
-    user = await users_col.find_one({"_id": result.inserted_id})
+    # 4. Insert into database
+    try:
+        result = await users_col.insert_one(insert_doc)
+        user = await users_col.find_one({"_id": result.inserted_id})
+    except PyMongoError as pe:
+        logger.error(f"MongoDB insert error for {email}: {pe}", exc_info=True)
+        error_response(f"Database error creating user: {str(pe)}", 503)
+    except Exception as exc:
+        logger.error(f"Unexpected error inserting user {email}: {exc}", exc_info=True)
+        error_response(f"Failed to create user account: {str(exc)}", 500)
+
+    if not user:
+        error_response("User created but could not be loaded from database", 500)
+
     return _serialize_user(user)
 
 
